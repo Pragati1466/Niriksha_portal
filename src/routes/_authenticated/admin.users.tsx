@@ -30,6 +30,7 @@ type User = {
   id: string; name: string; email: string; phone: string | null; employee_id: string | null;
   jurisdiction: { state?: string | null; district?: string | null };
   is_active: boolean; department_id: string | null; roles: string[];
+  login_password: string | null;
 };
 
 function UsersPage() {
@@ -101,12 +102,13 @@ function UsersPage() {
               <TableHead>Department</TableHead>
               <TableHead>Employee ID</TableHead>
               <TableHead>Jurisdiction</TableHead>
+              <TableHead>Login Password</TableHead>
               <TableHead className="w-32 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && (<TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>)}
-            {!isLoading && (rows as User[]).length === 0 && (<TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No users yet.</TableCell></TableRow>)}
+            {isLoading && (<TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>)}
+            {!isLoading && (rows as User[]).length === 0 && (<TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">No users yet.</TableCell></TableRow>)}
             {(rows as User[]).map((u) => {
               const dept = (depts as Dept[]).find((d) => d.id === u.department_id);
               const j = u.jurisdiction || {};
@@ -118,6 +120,13 @@ function UsersPage() {
                   <TableCell>{dept?.name ?? "—"}</TableCell>
                   <TableCell>{u.employee_id ?? "—"}</TableCell>
                   <TableCell className="text-muted-foreground text-xs">{[j.state, j.district].filter(Boolean).join(" / ") || "—"}</TableCell>
+                  <TableCell>
+                    {u.login_password ? (
+                      <span className="font-mono text-xs text-muted-foreground">{u.login_password}</span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">—</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     <Button size="icon" variant="ghost" title="Edit" onClick={() => trySwitch(u)}>
                       <Pencil className="h-4 w-4" />

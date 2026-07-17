@@ -166,7 +166,7 @@ export const listUsers = createServerFn({ method: "GET" })
     const sb = (context as any).supabase;
     const { data: profiles, error } = await sb
       .from("profiles")
-      .select("id, name, email, phone, employee_id, jurisdiction, is_active, department_id, created_at")
+      .select("id, name, email, phone, employee_id, jurisdiction, is_active, department_id, created_at, login_password")
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     const { data: roles } = await sb.from("user_roles").select("user_id, role");
@@ -216,6 +216,7 @@ export const createUser = createServerFn({ method: "POST" })
         state: data.jurisdiction_state ?? null,
         district: data.jurisdiction_district ?? null,
       },
+      login_password: data.password,
     });
     const { error: roleErr } = await supabaseAdmin
       .from("user_roles")
@@ -278,7 +279,7 @@ export const deleteUser = createServerFn({ method: "POST" })
 const establishmentSchema = z.object({
   id: z.string().uuid().optional(),
   department_id: z.string().uuid(),
-  registration_number: z.string().min(1),
+  registration_number: z.string().optional().nullable(),
   name: z.string().min(1),
   owner_name: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
@@ -289,6 +290,10 @@ const establishmentSchema = z.object({
   category: z.string().optional().nullable(),
   registration_date: z.string().optional().nullable(),
   expiry_date: z.string().optional().nullable(),
+  state: z.string().optional().nullable(),
+  district: z.string().optional().nullable(),
+  contact_name: z.string().optional().nullable(),
+  contact_phone: z.string().optional().nullable(),
   status: z.enum(["active", "suspended", "archived"]).default("active"),
 });
 

@@ -316,6 +316,7 @@ export type Database = {
           id: string
           is_active: boolean
           jurisdiction: Json
+          login_password: string | null
           name: string
           phone: string | null
         }
@@ -327,6 +328,7 @@ export type Database = {
           id: string
           is_active?: boolean
           jurisdiction?: Json
+          login_password?: string | null
           name?: string
           phone?: string | null
         }
@@ -338,6 +340,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           jurisdiction?: Json
+          login_password?: string | null
           name?: string
           phone?: string | null
         }
