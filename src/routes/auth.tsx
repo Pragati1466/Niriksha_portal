@@ -15,6 +15,25 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+/** Fetch the primary role for a signed-in user from user_roles table. */
+async function getUserRole(userId: string): Promise<"admin" | "inspector" | "supervisor" | null> {
+  const { data, error } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data.role as "admin" | "inspector" | "supervisor";
+}
+
+/** Return the correct dashboard path for a given role. */
+function dashboardPath(role: "admin" | "inspector" | "supervisor" | null): string {
+  if (role === "supervisor") return "/supervisor";
+  if (role === "inspector") return "/inspector";
+  return "/admin"; // default for admin and unknown roles
+}
+
 function AuthPage() {
   const navigate = useNavigate();
   const adminCountFn = useServerFn(getAdminCount);
@@ -26,8 +45,10 @@ function AuthPage() {
   const needsBootstrap = countData?.count === 0;
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) navigate({ to: "/admin" });
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (!data.user) return;
+      const role = await getUserRole(data.user.id);
+      navigate({ to: dashboardPath(role) });
     });
   }, [navigate]);
 
@@ -131,11 +152,24 @@ function SignInCard() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Signed in");
-    navigate({ to: "/admin" });
+    const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      setLoading(false);
+      toast.error(error.message);
+      return;
+    }
+    // Look up the user's role to determine which dashboard to open
+    try {
+      const role = await getUserRole(signInData.user.id);
+      toast.success("Signed in");
+      navigate({ to: dashboardPath(role) });
+    } catch {
+      // Role lookup failed — still signed in, fall back to admin dashboard
+      toast.success("Signed in");
+      navigate({ to: "/admin" });
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
