@@ -225,10 +225,12 @@ async function fetchProfileMap(
 ): Promise<Map<string, { name: string; email: string }>> {
   const map = new Map<string, { name: string; email: string }>();
   if (userIds.length === 0) return map;
+  // Direct .from("profiles") is blocked by the "profiles_self_select" RLS
+  // policy which only permits reading your own row. Use the SECURITY DEFINER
+  // RPC instead — it enforces least-privilege server-side (returns only
+  // id/name/email, and only for inspectors on this supervisor's inspections).
   const { data } = await supabase
-    .from("profiles")
-    .select("id, name, email")
-    .in("id", userIds);
+    .rpc("get_inspector_profiles", { inspector_ids: userIds });
   for (const p of (data ?? []) as any[]) {
     map.set(p.id, { name: p.name ?? "", email: p.email ?? "" });
   }
@@ -246,8 +248,8 @@ async function fetchProfileMap(
    QUEUE_STATUSES once pending/in_progress records exist.
 ───────────────────────────────────────────────────────────── */
 
-// TODO: revert to ["pending", "in_progress"] when live pending data is available
-const QUEUE_STATUSES = ["pending", "in_progress", "completed"] as const;
+// Pending Reviews shows only inspections awaiting review or currently in progress.
+const QUEUE_STATUSES = ["pending", "in_progress"] as const;
 
 export async function getReviewQueue(filters?: {
   search?: string;

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   FileText, Download, ChevronRight, FileSpreadsheet,
   Filter, Calendar, Building2, Shield, Clock, CheckCircle2, Search,
+  User, Hash,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,17 +15,207 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { getCompletedInspections, getDepartments } from "@/lib/supervisor.functions";
+import { getCompletedInspections, getDepartments, type CompletedInspectionRow } from "@/lib/supervisor.functions";
 
 export const Route = createFileRoute("/_authenticated/supervisor/reports")({
   head: () => ({ meta: [{ title: "Reports — NIRIKSHA Supervisor" }] }),
   component: ReportsPage,
 });
 
+/* ─────────────────────────────────────────────────────────────
+   CSV export
+   Serialises all currently-filtered rows to a UTF-8 CSV and
+   triggers a browser download — no external library needed.
+───────────────────────────────────────────────────────────── */
+function exportCSV(rows: CompletedInspectionRow[]) {
+  const escape = (v: string | number | null | undefined) => {
+    if (v === null || v === undefined) return "";
+    const s = String(v);
+    // Wrap in double-quotes if the value contains a comma, newline, or quote
+    return s.includes(",") || s.includes("\n") || s.includes('"')
+      ? `"${s.replace(/"/g, '""')}"`
+      : s;
+  };
+
+  const headers = [
+    "Inspection ID",
+    "Establishment",
+    "Department",
+    "Inspector",
+    "Scheduled Date",
+    "Actual Date",
+    "Risk Score",
+    "Created At",
+  ];
+
+  const dataRows = rows.map((r) => [
+    escape(r.id),
+    escape(r.establishmentName),
+    escape(r.department),
+    escape(r.inspectorName),
+    escape(r.scheduledDate),
+    escape(r.actualDate),
+    escape(r.riskScore),
+    escape(r.createdAt),
+  ].join(","));
+
+  const csv = [headers.join(","), ...dataRows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href     = url;
+  link.download = `niriksha-reports-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   PDF export
+   Injects a hidden print-only <div> with the inspection report
+   and calls window.print(). The browser's Save as PDF option
+   in the print dialog produces the PDF — zero dependencies.
+───────────────────────────────────────────────────────────── */
+function exportPDF(row: CompletedInspectionRow) {
+  const formatDate = (d: string | null) => {
+    if (!d || d === "—") return "—";
+    return new Date(d).toLocaleDateString("en-IN", {
+      day: "2-digit", month: "long", year: "numeric",
+    });
+  };
+
+  const printId = "niriksha-print-report";
+  // Remove any stale print element from a previous call
+  const stale = document.getElementById(printId);
+  if (stale) stale.remove();
+
+  const el = document.createElement("div");
+  el.id = printId;
+  el.innerHTML = `
+    <style>
+      @media print {
+        body > *:not(#${printId}) { display: none !important; }
+        #${printId} { display: block !important; }
+        @page { margin: 20mm; }
+      }
+      #${printId} {
+        display: none;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-size: 13px;
+        color: #111;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+      #${printId} .header {
+        border-bottom: 2px solid #111;
+        padding-bottom: 12px;
+        margin-bottom: 20px;
+      }
+      #${printId} .header h1 { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
+      #${printId} .header p  { font-size: 12px; color: #555; margin: 0; }
+      #${printId} .section   { margin-bottom: 20px; }
+      #${printId} .section h2 {
+        font-size: 12px; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.08em; color: #555;
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 4px; margin: 0 0 10px;
+      }
+      #${printId} .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px 24px;
+      }
+      #${printId} .field { display: flex; flex-direction: column; }
+      #${printId} .field label { font-size: 11px; color: #666; }
+      #${printId} .field span  { font-size: 13px; font-weight: 500; }
+      #${printId} .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 600;
+        background: #f0fdf4;
+        color: #166534;
+        border: 1px solid #bbf7d0;
+      }
+      #${printId} .risk {
+        background: #fff7ed; color: #9a3412; border-color: #fed7aa;
+      }
+      #${printId} .footer {
+        margin-top: 32px;
+        border-top: 1px solid #ddd;
+        padding-top: 10px;
+        font-size: 11px;
+        color: #888;
+        display: flex;
+        justify-content: space-between;
+      }
+    </style>
+
+    <div class="header">
+      <h1>NIRIKSHA — Inspection Report</h1>
+      <p>Government Inspection Intelligence Platform &nbsp;|&nbsp; Generated: ${new Date().toLocaleString("en-IN")}</p>
+    </div>
+
+    <div class="section">
+      <h2>Establishment Details</h2>
+      <div class="grid">
+        <div class="field"><label>Establishment Name</label><span>${row.establishmentName}</span></div>
+        <div class="field"><label>Department</label><span>${row.department}</span></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Inspection Details</h2>
+      <div class="grid">
+        <div class="field"><label>Inspection ID</label><span style="font-family:monospace;font-size:12px">${row.id}</span></div>
+        <div class="field"><label>Inspector</label><span>${row.inspectorName}</span></div>
+        <div class="field"><label>Scheduled Date</label><span>${formatDate(row.scheduledDate)}</span></div>
+        <div class="field"><label>Actual Inspection Date</label><span>${formatDate(row.actualDate)}</span></div>
+        <div class="field">
+          <label>Status</label>
+          <span><span class="badge">Completed</span></span>
+        </div>
+        <div class="field">
+          <label>Risk Score</label>
+          <span>
+            ${row.riskScore !== null
+              ? `<span class="badge risk">${row.riskScore} / 100</span>`
+              : "<span>—</span>"}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Record Information</h2>
+      <div class="grid">
+        <div class="field"><label>Record Created</label><span>${formatDate(row.createdAt)}</span></div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>NIRIKSHA Government Inspection Intelligence Platform</span>
+      <span>Inspection ID: ${row.id.slice(0, 8).toUpperCase()}</span>
+    </div>
+  `;
+
+  document.body.appendChild(el);
+  window.print();
+  // Clean up after printing (small delay so print dialog renders)
+  setTimeout(() => el.remove(), 2000);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Page
+───────────────────────────────────────────────────────────── */
 function ReportsPage() {
   const [search, setSearch]       = useState("");
   const [deptFilter, setDept]     = useState("all");
   const [dateRange, setDateRange] = useState("30d");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const { data: departments = [] } = useQuery({
     queryKey: ["departments"],
@@ -49,7 +240,18 @@ function ReportsPage() {
     );
   }, [rows, search]);
 
+  // Derive selected row from filtered list (deselect if filtered out)
+  const selectedRow = useMemo(
+    () => filtered.find((r) => r.id === selectedId) ?? null,
+    [filtered, selectedId],
+  );
+
   const hasFilters = search || deptFilter !== "all" || dateRange !== "30d";
+
+  const handleRowClick = (id: string) => {
+    // Toggle: clicking the already-selected row deselects it
+    setSelectedId((prev) => (prev === id ? null : id));
+  };
 
   return (
     <div className="space-y-6 pb-10">
@@ -163,33 +365,49 @@ function ReportsPage() {
 
               {!isLoading && filtered.length > 0 && (
                 <div className="divide-y divide-border/60">
-                  {filtered.map((r) => (
-                    <div key={r.id} className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_90px_70px] gap-3 px-4 py-3 text-sm hover:bg-accent/40 transition-colors">
-                      <div className="min-w-0">
-                        <div className="truncate font-medium text-foreground">{r.establishmentName}</div>
-                        <div className="truncate text-[11px] font-mono text-muted-foreground">{r.id.slice(0,8)}</div>
+                  {filtered.map((r) => {
+                    const isSelected = r.id === selectedId;
+                    return (
+                      <div
+                        key={r.id}
+                        onClick={() => handleRowClick(r.id)}
+                        className={[
+                          "grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_90px_70px] gap-3 px-4 py-3 text-sm transition-colors cursor-pointer",
+                          isSelected
+                            ? "bg-primary/8 ring-1 ring-inset ring-primary/30"
+                            : "hover:bg-accent/40",
+                        ].join(" ")}
+                        aria-selected={isSelected}
+                        role="row"
+                      >
+                        <div className="min-w-0">
+                          <div className={`truncate font-medium ${isSelected ? "text-primary" : "text-foreground"}`}>
+                            {r.establishmentName}
+                          </div>
+                          <div className="truncate text-[11px] font-mono text-muted-foreground">{r.id.slice(0,8)}</div>
+                        </div>
+                        <div className="truncate text-xs text-muted-foreground">{r.department}</div>
+                        <div className="truncate text-xs text-muted-foreground">{r.inspectorName}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {r.actualDate
+                            ? new Date(r.actualDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+                            : r.scheduledDate !== "—"
+                            ? new Date(r.scheduledDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+                            : "—"}
+                        </div>
+                        <div className={`text-right text-xs font-semibold tabular-nums ${isSelected ? "text-primary" : "text-muted-foreground"}`}>
+                          {r.riskScore !== null ? r.riskScore : "—"}
+                        </div>
                       </div>
-                      <div className="truncate text-xs text-muted-foreground">{r.department}</div>
-                      <div className="truncate text-xs text-muted-foreground">{r.inspectorName}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {r.actualDate
-                          ? new Date(r.actualDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
-                          : r.scheduledDate !== "—"
-                          ? new Date(r.scheduledDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
-                          : "—"}
-                      </div>
-                      <div className="text-right text-xs font-semibold tabular-nums text-muted-foreground">
-                        {r.riskScore !== null ? r.riskScore : "—"}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Right: export + summary */}
+        {/* Right: export + preview + summary */}
         <div className="space-y-4">
           {/* Export */}
           <Card className="border-border/70 bg-card shadow-sm">
@@ -198,26 +416,43 @@ function ReportsPage() {
               <CardTitle className="text-sm font-semibold text-foreground">Export Reports</CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
-              <p className="text-xs text-muted-foreground">Export all filtered records or select individual rows to download.</p>
-              <Button variant="outline" className="w-full justify-start gap-2.5" disabled={filtered.length === 0}>
+              <p className="text-xs text-muted-foreground">
+                {selectedRow
+                  ? "PDF exports the selected inspection. CSV exports all filtered records."
+                  : "Select a row to enable PDF export. CSV exports all filtered records."}
+              </p>
+              {/* PDF — requires a selected row */}
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2.5"
+                disabled={!selectedRow}
+                onClick={() => selectedRow && exportPDF(selectedRow)}
+              >
                 <FileText className="h-4 w-4 text-destructive" />
                 <div className="text-left">
                   <div className="text-sm font-medium">Export as PDF</div>
-                  <div className="text-[11px] text-muted-foreground">Formatted inspection reports</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {selectedRow ? selectedRow.establishmentName : "Select a row first"}
+                  </div>
                 </div>
                 <Download className="ml-auto h-4 w-4 text-muted-foreground" />
               </Button>
-              <Button variant="outline" className="w-full justify-start gap-2.5" disabled={filtered.length === 0}>
+              {/* CSV — requires at least one filtered row */}
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2.5"
+                disabled={filtered.length === 0}
+                onClick={() => exportCSV(filtered)}
+              >
                 <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
                 <div className="text-left">
                   <div className="text-sm font-medium">Export as CSV</div>
-                  <div className="text-[11px] text-muted-foreground">Raw data for analysis</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {filtered.length > 0 ? `${filtered.length} record${filtered.length !== 1 ? "s" : ""}` : "No records"}
+                  </div>
                 </div>
                 <Download className="ml-auto h-4 w-4 text-muted-foreground" />
               </Button>
-              {filtered.length === 0 && (
-                <p className="text-[11px] text-muted-foreground">Export activates when records are available.</p>
-              )}
             </CardContent>
           </Card>
 
@@ -226,20 +461,66 @@ function ReportsPage() {
             <CardHeader className="flex-row items-center gap-2 space-y-0 border-b border-border/60 py-3">
               <FileText className="h-4 w-4 shrink-0 text-primary" />
               <CardTitle className="text-sm font-semibold text-foreground">Report Preview</CardTitle>
-              <Badge variant="secondary" className="ml-auto text-[10px]">No report selected</Badge>
+              <Badge
+                variant="secondary"
+                className={[
+                  "ml-auto text-[10px]",
+                  selectedRow ? "bg-primary/10 text-primary" : "",
+                ].join(" ")}
+              >
+                {selectedRow ? "Selected" : "No report selected"}
+              </Badge>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="flex flex-col items-center justify-center gap-3 bg-muted/10 px-5 py-10 text-center" style={{ minHeight: 200 }}>
-                <div className="w-full max-w-[200px] space-y-2 rounded-md border border-dashed border-border/70 bg-card p-4 text-left">
-                  <div className="h-2.5 w-24 rounded bg-muted/70" />
-                  <div className="h-2 w-full rounded bg-muted/50" />
-                  <div className="h-2 w-4/5 rounded bg-muted/50" />
-                  <Separator className="my-2" />
-                  <div className="h-2 w-16 rounded bg-muted/70" />
-                  <div className="h-2 w-full rounded bg-muted/40" />
+              {!selectedRow ? (
+                /* Placeholder when nothing selected */
+                <div className="flex flex-col items-center justify-center gap-3 bg-muted/10 px-5 py-10 text-center" style={{ minHeight: 200 }}>
+                  <div className="w-full max-w-[200px] space-y-2 rounded-md border border-dashed border-border/70 bg-card p-4 text-left">
+                    <div className="h-2.5 w-24 rounded bg-muted/70" />
+                    <div className="h-2 w-full rounded bg-muted/50" />
+                    <div className="h-2 w-4/5 rounded bg-muted/50" />
+                    <Separator className="my-2" />
+                    <div className="h-2 w-16 rounded bg-muted/70" />
+                    <div className="h-2 w-full rounded bg-muted/40" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Select a record to preview the report.</p>
                 </div>
-                <p className="text-xs text-muted-foreground">Select a record to preview the report.</p>
-              </div>
+              ) : (
+                /* Detail view for the selected row */
+                <div className="divide-y divide-border/60 text-sm">
+                  <PreviewField icon={Building2} label="Establishment" value={selectedRow.establishmentName} />
+                  <PreviewField icon={Shield} label="Department" value={selectedRow.department} />
+                  <PreviewField icon={User} label="Inspector" value={selectedRow.inspectorName} />
+                  <PreviewField
+                    icon={Calendar}
+                    label="Inspection Date"
+                    value={
+                      selectedRow.actualDate
+                        ? new Date(selectedRow.actualDate).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })
+                        : selectedRow.scheduledDate !== "—"
+                        ? new Date(selectedRow.scheduledDate).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })
+                        : "—"
+                    }
+                  />
+                  <PreviewField
+                    icon={Shield}
+                    label="Risk Score"
+                    value={selectedRow.riskScore !== null ? String(selectedRow.riskScore) : "—"}
+                    valueClass={
+                      selectedRow.riskScore !== null && selectedRow.riskScore >= 75
+                        ? "text-destructive font-semibold"
+                        : selectedRow.riskScore !== null && selectedRow.riskScore >= 50
+                        ? "text-amber-600 font-semibold"
+                        : "text-emerald-600 font-semibold"
+                    }
+                  />
+                  <PreviewField icon={CheckCircle2} label="Status" value="Completed" valueClass="text-emerald-600 font-semibold" />
+                  <div className="px-4 py-2.5">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1">Inspection ID</p>
+                    <p className="font-mono text-[11px] text-muted-foreground break-all">{selectedRow.id}</p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -251,8 +532,8 @@ function ReportsPage() {
             </CardHeader>
             <CardContent className="divide-y divide-border/60 p-0">
               {[
-                { icon: CheckCircle2, label: "Completed Inspections", value: isLoading ? null : rows.length,    color: "text-emerald-600" },
-                { icon: Filter,       label: "Filtered Records",       value: isLoading ? null : filtered.length, color: "text-primary" },
+                { icon: CheckCircle2, label: "Completed Inspections", value: isLoading ? null : rows.length,       color: "text-emerald-600" },
+                { icon: Filter,       label: "Filtered Records",       value: isLoading ? null : filtered.length,  color: "text-primary" },
                 { icon: Building2,    label: "Unique Establishments",  value: isLoading ? null : new Set(rows.map((r) => r.establishmentName)).size, color: "text-primary" },
                 { icon: Calendar,     label: "Date Range",             value: null, label2: dateRange === "all" ? "All time" : `Last ${dateRange}`, color: "text-muted-foreground" },
               ].map((s, i) => (
@@ -274,6 +555,33 @@ function ReportsPage() {
           </Card>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   PreviewField — small labelled row used in the detail panel
+───────────────────────────────────────────────────────────── */
+function PreviewField({
+  icon: Icon,
+  label,
+  value,
+  valueClass = "",
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  valueClass?: string;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3 px-4 py-2.5">
+      <div className="flex items-center gap-2 min-w-0">
+        <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <span className="text-xs text-muted-foreground truncate">{label}</span>
+      </div>
+      <span className={`text-xs text-right max-w-[140px] break-words ${valueClass || "text-foreground"}`}>
+        {value}
+      </span>
     </div>
   );
 }
