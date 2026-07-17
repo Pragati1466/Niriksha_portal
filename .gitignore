@@ -1,3 +1,4 @@
+
 # Logs
 logs
 *.log
@@ -23,6 +24,9 @@ dist-ssr
 # Environment variables
 .env
 
+# Seed data (large CSV files)
+seed-data/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -33,3 +37,5 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.vercel
+dataset/*.csv

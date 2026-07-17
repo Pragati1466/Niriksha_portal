@@ -9,6 +9,8 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
+    "seed": "bun run scripts/seed-from-csv.ts",
+    "seed:prod": "VITE_SUPABASE_URL=https://mpgkvyptxkddpaunuove.supabase.co SUPABASE_SERVICE_KEY=$SUPABASE_SERVICE_KEY bun run scripts/seed-from-csv.ts",
     "format": "prettier --write ."
   },
   "dependencies": {
