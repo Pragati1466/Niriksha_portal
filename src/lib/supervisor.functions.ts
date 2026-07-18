@@ -755,11 +755,11 @@ export async function getInspectionTrends(period: AnalyticsPeriod): Promise<Tren
 
   const { data, error } = await supabase
     .from("inspections")
-    .select("created_at, status")
+    .select("scheduled_date, status")
     .eq("supervisor_id", uid)
-    .gte("created_at", from.toISOString())
-    .lte("created_at", to.toISOString())
-    .order("created_at", { ascending: true });
+    .gte("scheduled_date", from.toISOString())
+    .lte("scheduled_date", to.toISOString())
+    .order("scheduled_date", { ascending: true });
 
   if (error) throw new Error(error.message);
 
@@ -777,7 +777,7 @@ export async function getInspectionTrends(period: AnalyticsPeriod): Promise<Tren
   }
 
   for (const row of (data ?? []) as any[]) {
-    const b = buckets.get(_bucketKey(new Date(row.created_at), period));
+    const b = buckets.get(_bucketKey(new Date(row.scheduled_date), period));
     if (b) {
       const s = row.status as keyof Omit<B, "label">;
       if (s in b) b[s]++;
