@@ -12,9 +12,28 @@ import { toast } from "sonner";
 import { ShieldCheck, Loader2, Home, ArrowRight, Lock, Mail, User, ChevronRight } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
-  head: () => ({ meta: [{ title: "Sign in — NIRIKSHA Admin" }] }),
+  head: () => ({ meta: [{ title: "Sign in — NIRIKSHA" }] }),
   component: AuthPage,
 });
+
+async function getUserRole(userId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data.role;
+}
+
+async function redirectAfterLogin(navigate: any, userId: string) {
+  const role = await getUserRole(userId);
+  if (role === "inspector") {
+    navigate({ to: "/inspector" });
+  } else {
+    navigate({ to: "/admin" });
+  }
+}
 
 function AuthPage() {
   const navigate = useNavigate();
@@ -28,7 +47,9 @@ function AuthPage() {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) navigate({ to: "/admin" });
+      if (data.user) {
+        redirectAfterLogin(navigate, data.user.id);
+      }
     });
   }, [navigate]);
 
@@ -176,11 +197,15 @@ function SignInCard() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Signed in");
-    navigate({ to: "/admin" });
+    if (data.user) {
+      redirectAfterLogin(navigate, data.user.id);
+    } else {
+      navigate({ to: "/admin" });
+    }
   }
 
   return (
