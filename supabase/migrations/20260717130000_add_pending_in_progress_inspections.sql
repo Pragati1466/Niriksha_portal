@@ -1,8 +1,11 @@
 -- =========================================================
--- Add realistic pending and in-progress inspections
+-- Add realistic pending, in-progress, and cancelled inspections
 -- =========================================================
--- With ~8000 total inspections, we need a meaningful proportion:
--- ~200 pending (~2.5%) and ~100 in_progress (~1.25%)
+-- Target distribution for ~8000 total inspections:
+--   Completed:   88-92%  (7040-7360)  — already seeded
+--   Pending:      5-7%   (400-560)    — inserting 500
+--   In Progress:  2-4%   (160-320)    — inserting 250
+--   Cancelled:    0-2%   (0-160)      — inserting 50
 -- These use existing UUIDs from seed data.
 
 -- First, remove the 8 records previously inserted (if any)
@@ -140,6 +143,7 @@ DECLARE
   v_note text;
   v_total_pending int := 500;
   v_total_in_progress int := 250;
+  v_total_cancelled int := 50;
 BEGIN
 
   -- Build department lookup: for each establishment, determine its department
@@ -216,7 +220,35 @@ BEGIN
   END LOOP;
 
   -- =========================================================
-  -- INSERT IN-PROGRESS INSPECTIONS (~100)
+  -- INSERT CANCELLED INSPECTIONS (~50)
+  -- =========================================================
+  FOR v_i IN 1..v_total_cancelled LOOP
+    v_est := v_est_uuids[1 + (v_i % array_length(v_est_uuids, 1))];
+    v_insp := v_insp_uuids[1 + (v_i % array_length(v_insp_uuids, 1))];
+    v_sup := v_sup_uuids[1 + (v_i % array_length(v_sup_uuids, 1))];
+    v_dept := v_dept_arr[1 + (v_i % array_length(v_dept_arr, 1))];
+
+    v_sched := CURRENT_DATE - (30 + (v_i % 60));
+
+    INSERT INTO public.inspections (
+      id, establishment_id, department_id, inspector_id, supervisor_id,
+      scheduled_date, status, checklist, findings, notes, created_at
+    ) VALUES (
+      gen_random_uuid(), v_est, v_dept, v_insp, v_sup,
+      v_sched, 'cancelled',
+      '{"compliance": 0, "items": []}',
+      '{}'::jsonb,
+      CASE v_i % 3
+        WHEN 0 THEN 'Cancelled — establishment requested rescheduling'
+        WHEN 1 THEN 'Cancelled — inspector unavailable, reassigned'
+        ELSE 'Cancelled — administrative reasons'
+      END,
+      now()
+    ) ON CONFLICT DO NOTHING;
+  END LOOP;
+
+  -- =========================================================
+  -- INSERT IN-PROGRESS INSPECTIONS (~250)
   -- =========================================================
   FOR v_i IN 1..v_total_in_progress LOOP
     v_est := v_est_uuids[1 + (v_i % array_length(v_est_uuids, 1))];
