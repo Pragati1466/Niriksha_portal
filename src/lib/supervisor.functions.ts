@@ -623,3 +623,308 @@ export async function getDepartments(): Promise<{ id: string; name: string; code
   if (error) throw new Error(error.message);
   return (data ?? []) as { id: string; name: string; code: string }[];
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   ANALYTICS FUNCTIONS
+   Added for the Analytics Dashboard page.
+   All existing functions above are unchanged.
+   Only derives data from: inspections, risk_profiles, departments.
+   No AI-agent endpoints. No fabricated metrics.
+═══════════════════════════════════════════════════════════════ */
+
+export type AnalyticsPeriod = "week" | "month" | "quarter" | "year";
+
+export type AnalyticsSummary = {
+  totalInspections: number;
+  /** Average days from scheduled_date → actual_date. null = no completed data. */
+  avgTurnaroundDays: number | null;
+  /** Always null — no supervisor approval/rejection columns exist in schema. */
+  approvalRate: null;
+};
+
+export type TrendPoint = {
+  label: string;
+  completed: number;
+  pending: number;
+  in_progress: number;
+  cancelled: number;
+  total: number;
+};
+
+export type RiskDistPoint = { name: string; value: number; fill: string };
+
+export type DeptPerfPoint = { department: string; completed: number };
+
+export type InspectorProdPoint = { inspectorName: string; completed: number };
+
+export type TurnaroundPoint = { label: string; avgDays: number };
+
+/* private helpers */
+
+function _isoDate(d: Date): string {
+  return d.toISOString().split("T")[0];
+}
+
+function _weekMonday(d: Date): Date {
+  const day  = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const m    = new Date(d);
+  m.setDate(diff);
+  m.setHours(0, 0, 0, 0);
+  return m;
+}
+
+export function analyticsPeriodRange(period: AnalyticsPeriod): { from: Date; to: Date } {
+  const now = new Date();
+  const to  = new Date(now);
+  let from: Date;
+  if (period === "week") {
+    from = new Date(now);
+    from.setDate(now.getDate() - 6);
+    from.setHours(0, 0, 0, 0);
+  } else if (period === "month") {
+    from = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+  } else if (period === "quarter") {
+    const q = Math.floor(now.getMonth() / 3);
+    from = new Date(now.getFullYear(), q * 3, 1, 0, 0, 0, 0);
+  } else {
+    from = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+  }
+  return { from, to };
+}
+
+function _bucketKey(d: Date, period: AnalyticsPeriod): string {
+  if (period === "week" || period === "month") return _isoDate(d);
+  if (period === "quarter") return _isoDate(_weekMonday(d));
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function _bucketLabel(key: string, period: AnalyticsPeriod): string {
+  if (period === "year") {
+    const [yr, mo] = key.split("-");
+    return new Date(Number(yr), Number(mo) - 1, 1)
+      .toLocaleString("en-IN", { month: "short", year: "2-digit" });
+  }
+  return new Date(key)
+    .toLocaleString("en-IN", { month: "short", day: "numeric" });
+}
+
+/* ─── 1. Analytics Summary ─── */
+
+export async function getAnalyticsSummary(period: AnalyticsPeriod): Promise<AnalyticsSummary> {
+  const uid          = await currentUserId();
+  const { from, to } = analyticsPeriodRange(period);
+
+  const { count: total } = await supabase
+    .from("inspections")
+    .select("id", { count: "exact", head: true })
+    .eq("supervisor_id", uid)
+    .gte("created_at", from.toISOString())
+    .lte("created_at", to.toISOString());
+
+  const { data: completedRows } = await supabase
+    .from("inspections")
+    .select("scheduled_date, actual_date")
+    .eq("supervisor_id", uid)
+    .eq("status", "completed")
+    .gte("created_at", from.toISOString())
+    .lte("created_at", to.toISOString())
+    .not("actual_date",    "is", null)
+    .not("scheduled_date", "is", null);
+
+  let avgTurnaroundDays: number | null = null;
+  const cRows = (completedRows ?? []) as { scheduled_date: string; actual_date: string }[];
+  if (cRows.length > 0) {
+    const deltas = cRows
+      .map((r) => (new Date(r.actual_date).getTime() - new Date(r.scheduled_date).getTime()) / 86400000)
+      .filter((d) => d >= 0);
+    if (deltas.length > 0) {
+      avgTurnaroundDays =
+        Math.round((deltas.reduce((s, v) => s + v, 0) / deltas.length) * 10) / 10;
+    }
+  }
+
+  return { totalInspections: total ?? 0, avgTurnaroundDays, approvalRate: null };
+}
+
+/* ─── 2. Inspection Trends ─── */
+
+export async function getInspectionTrends(period: AnalyticsPeriod): Promise<TrendPoint[]> {
+  const uid          = await currentUserId();
+  const { from, to } = analyticsPeriodRange(period);
+
+  const { data, error } = await supabase
+    .from("inspections")
+    .select("created_at, status")
+    .eq("supervisor_id", uid)
+    .gte("created_at", from.toISOString())
+    .lte("created_at", to.toISOString())
+    .order("created_at", { ascending: true });
+
+  if (error) throw new Error(error.message);
+
+  type B = { label: string; completed: number; pending: number; in_progress: number; cancelled: number };
+  const buckets = new Map<string, B>();
+
+  const cursor = new Date(from);
+  while (cursor <= to) {
+    const key = _bucketKey(cursor, period);
+    if (!buckets.has(key))
+      buckets.set(key, { label: _bucketLabel(key, period), completed: 0, pending: 0, in_progress: 0, cancelled: 0 });
+    if (period === "week" || period === "month") cursor.setDate(cursor.getDate() + 1);
+    else if (period === "quarter")               cursor.setDate(cursor.getDate() + 7);
+    else                                         cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  for (const row of (data ?? []) as any[]) {
+    const b = buckets.get(_bucketKey(new Date(row.created_at), period));
+    if (b) {
+      const s = row.status as keyof Omit<B, "label">;
+      if (s in b) b[s]++;
+    }
+  }
+
+  return Array.from(buckets.values()).map((b) => ({
+    label:       b.label,
+    completed:   b.completed,
+    pending:     b.pending,
+    in_progress: b.in_progress,
+    cancelled:   b.cancelled,
+    total:       b.completed + b.pending + b.in_progress + b.cancelled,
+  }));
+}
+
+/* ─── 3. Risk Distribution ─── */
+
+const _RISK_FILL: Record<string, string> = {
+  Low: "#22c55e", Medium: "#f59e0b", High: "#ef4444", Critical: "#7c3aed",
+};
+
+export async function getRiskDistributionAnalytics(): Promise<RiskDistPoint[]> {
+  const uid = await currentUserId();
+
+  const { data: estRows } = await supabase
+    .from("inspections")
+    .select("establishment_id")
+    .eq("supervisor_id", uid);
+
+  const estIds = [...new Set((estRows ?? []).map((r: any) => r.establishment_id as string))];
+  if (estIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("risk_profiles")
+    .select("risk_level")
+    .in("establishment_id", estIds);
+
+  if (error) throw new Error(error.message);
+
+  const counts: Record<string, number> = { Low: 0, Medium: 0, High: 0, Critical: 0 };
+  for (const row of (data ?? []) as any[]) {
+    const lvl: string = row.risk_level ?? "";
+    if (lvl in counts) counts[lvl]++;
+  }
+
+  return (["Critical", "High", "Medium", "Low"] as const)
+    .map((lvl) => ({ name: lvl, value: counts[lvl], fill: _RISK_FILL[lvl] }))
+    .filter((p) => p.value > 0);
+}
+
+/* ─── 4. Department Performance ─── */
+
+export async function getDeptPerformance(period: AnalyticsPeriod): Promise<DeptPerfPoint[]> {
+  const uid          = await currentUserId();
+  const { from, to } = analyticsPeriodRange(period);
+
+  const { data, error } = await supabase
+    .from("inspections")
+    .select("department:departments(name)")
+    .eq("supervisor_id", uid)
+    .eq("status", "completed")
+    .gte("created_at", from.toISOString())
+    .lte("created_at", to.toISOString());
+
+  if (error) throw new Error(error.message);
+
+  const counts = new Map<string, number>();
+  for (const row of (data ?? []) as any[]) {
+    const name: string = row.department?.name ?? "Unknown";
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+
+  return Array.from(counts.entries())
+    .map(([department, completed]) => ({ department, completed }))
+    .sort((a, b) => b.completed - a.completed);
+}
+
+/* ─── 5. Inspector Productivity (Top 10) ─── */
+
+export async function getInspectorProductivity(period: AnalyticsPeriod): Promise<InspectorProdPoint[]> {
+  const uid          = await currentUserId();
+  const { from, to } = analyticsPeriodRange(period);
+
+  const { data, error } = await supabase
+    .from("inspections")
+    .select("inspector_id")
+    .eq("supervisor_id", uid)
+    .eq("status", "completed")
+    .gte("created_at", from.toISOString())
+    .lte("created_at", to.toISOString());
+
+  if (error) throw new Error(error.message);
+
+  const counts = new Map<string, number>();
+  for (const row of (data ?? []) as { inspector_id: string }[]) {
+    if (row.inspector_id) counts.set(row.inspector_id, (counts.get(row.inspector_id) ?? 0) + 1);
+  }
+  if (counts.size === 0) return [];
+
+  const profileMap = await fetchProfileMap(Array.from(counts.keys()));
+
+  return Array.from(counts.entries())
+    .map(([id, completed]) => {
+      const p = profileMap.get(id);
+      return { inspectorName: p?.name || p?.email || id.slice(0, 8), completed };
+    })
+    .sort((a, b) => b.completed - a.completed)
+    .slice(0, 10);
+}
+
+/* ─── 6. Turnaround Trend ─── */
+
+export async function getTurnaroundTrend(period: AnalyticsPeriod): Promise<TurnaroundPoint[]> {
+  const uid          = await currentUserId();
+  const { from, to } = analyticsPeriodRange(period);
+
+  const { data, error } = await supabase
+    .from("inspections")
+    .select("scheduled_date, actual_date, created_at")
+    .eq("supervisor_id", uid)
+    .eq("status", "completed")
+    .gte("created_at", from.toISOString())
+    .lte("created_at", to.toISOString())
+    .not("actual_date",    "is", null)
+    .not("scheduled_date", "is", null)
+    .order("created_at", { ascending: true });
+
+  if (error) throw new Error(error.message);
+
+  const rows = (data ?? []) as { scheduled_date: string; actual_date: string; created_at: string }[];
+  if (rows.length === 0) return [];
+
+  const buckets = new Map<string, number[]>();
+  for (const row of rows) {
+    const days =
+      (new Date(row.actual_date).getTime() - new Date(row.scheduled_date).getTime()) / 86400000;
+    if (days < 0) continue;
+    const key = _bucketKey(new Date(row.created_at), period);
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key)!.push(days);
+  }
+
+  return Array.from(buckets.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, vals]) => ({
+      label:   _bucketLabel(key, period),
+      avgDays: Math.round((vals.reduce((s, v) => s + v, 0) / vals.length) * 10) / 10,
+    }));
+}

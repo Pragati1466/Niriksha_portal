@@ -453,6 +453,10 @@ export type Database = {
     }
     Functions: {
       admin_count: { Args: never; Returns: number }
+      get_inspector_profiles: {
+        Args: { inspector_ids: string[] }
+        Returns: { id: string; name: string; email: string }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
