@@ -30,20 +30,27 @@ export const getInspectorDashboard = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await requireInspector(context as any);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const sb = (context as any).supabase;
     const userId = (context as any).userId;
 
-    // Use the normalized get_inspector_dashboard RPC function
-    const { data: dashboardData, error: rpcError } = await supabaseAdmin
-      .rpc("get_inspector_dashboard", { p_inspector_id: userId });
+    // Fetch profile, inspections, and departments using the authenticated client
+    const [profileResult, inspectionsResult, departmentsResult] = await Promise.all([
+      sb.from("profiles").select("id, name, email, employee_id, department_id").eq("id", userId).maybeSingle(),
+      sb.from("inspections")
+        .select("*, establishment:establishments(id, name, address), department:departments(id, name)")
+        .eq("inspector_id", userId)
+        .order("scheduled_date", { ascending: false }),
+      sb.from("departments").select("id, name").order("name"),
+    ]);
 
-    if (rpcError) throw new Error(rpcError.message);
+    if (profileResult.error) throw new Error(profileResult.error.message);
+    if (inspectionsResult.error) throw new Error(inspectionsResult.error.message);
+    if (departmentsResult.error) throw new Error(departmentsResult.error.message);
 
-    // The RPC returns a JSONB object with profile, inspections, departments
-    return dashboardData as {
-      profile: any;
-      inspections: any[];
-      departments: any[];
+    return {
+      profile: profileResult.data,
+      inspections: inspectionsResult.data ?? [],
+      departments: departmentsResult.data ?? [],
     };
   });
 
