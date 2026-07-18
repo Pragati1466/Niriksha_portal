@@ -1,5 +1,6 @@
 # main.py
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from schemas import (
     InspectionAnalysisRequest,
     RiskScoreResponse,
@@ -11,6 +12,16 @@ from agents.evidence_agent import run_evidence_agent
 from graph import run_full_pipeline
 
 app = FastAPI(title="NIRIKSHA AI Intelligence Module")
+
+# Allow the Vite dev server (and any other local origin) to reach this API.
+# In production, replace ["*"] with your exact frontend domain.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/")

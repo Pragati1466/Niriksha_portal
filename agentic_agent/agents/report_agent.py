@@ -41,7 +41,7 @@ FINDINGS: {data.current_inspection.findings}
 
 Respond in this exact format:
 REPORT_SUMMARY: <3-4 sentence professional summary of the inspection findings, referencing the risk level and specific issues found>
-VIOLATION_NOTICE: <a formal violation notice if risk_level is moderate or high, citing specific findings; write "None" if risk_level is low>
+VIOLATION_NOTICE:<write a formal violation notice if risk_level is moderate or high.If risk_level is low, write:"No violations requiring regulatory action were identified.">
 RECOMMENDED_ACTIONS: <comma-separated list of 2-4 specific actions supervisors should take>
 CORRECTIVE_ACTIONS: <comma-separated list of 2-4 specific actions the establishment must take>
 """
@@ -55,7 +55,11 @@ def parse_report_response(raw: str) -> dict:
             result["report_summary"] = line.split(":", 1)[1].strip()
         elif line.startswith("VIOLATION_NOTICE:"):
             val = line.split(":", 1)[1].strip()
-            result["violation_notice"] = None if val.lower() == "none" else val
+            result["violation_notice"] = (
+                "No violations requiring regulatory action were identified."
+                if val.lower() == "none"
+                else val
+            )
         elif line.startswith("RECOMMENDED_ACTIONS:"):
             val = line.split(":", 1)[1].strip()
             result["recommended_actions"] = [a.strip() for a in val.split(",") if a.strip()]

@@ -1,17 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useRef, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   ShieldAlert, ChevronRight, MapPin, AlertTriangle,
-  TrendingUp, Building2, Filter, BarChart3,
+  TrendingUp, Building2, Filter, BarChart3, Sparkles,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { getRiskKpis, getRiskPriorityQueue, getDepartments } from "@/lib/supervisor.functions";
+import {
+  getRiskKpis, getRiskPriorityQueue, getDepartments,
+  getLatestInspectionForEstablishment,
+} from "@/lib/supervisor.functions";
+import { getRiskScore, buildAIPayload, type RiskScoreResponse } from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/_authenticated/supervisor/risk")({
   head: () => ({ meta: [{ title: "Risk Monitoring — NIRIKSHA Supervisor" }] }),
@@ -261,15 +266,28 @@ function RiskDistributionCard({
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Priority Queue — real data
+   Priority Queue — real data + per-row AI analysis
 ───────────────────────────────────────────────────────────── */
 
-function PriorityQueueCard({
-  rows,
-  loading,
+/**
+ * Single priority queue row.
+ *
+ * On "Analyse" click:
+ *   1. Fetches the latest full InspectionDetail for this establishment
+ *      via getLatestInspectionForEstablishment — exactly the same data
+ *      source and shape used by supervisor.inspection.$id.tsx.
+ *   2. Passes it to buildAIPayload (same helper used in the detail page)
+ *      to get a complete InspectionAnalysisRequest with real checklist,
+ *      findings, evidence, establishment info, department, etc.
+ *   3. Sends that payload to getRiskScore.
+ *
+ * Unmount safety: a mounted ref prevents calling setAiResult after the
+ * component has been removed from the tree.
+ */
+function PriorityQueueRow({
+  row,
 }: {
-  rows: { id: string; establishmentName: string; riskScore: number; riskLevel: string }[];
-  loading: boolean;
+  row: { id: string; establishmentName: string; riskScore: number; riskLevel: string; establishmentId: string };
 }) {
   const levelColor: Record<string, string> = {
     Critical: "bg-destructive text-destructive-foreground",
@@ -278,6 +296,112 @@ function PriorityQueueCard({
     Low:      "bg-emerald-500/10 text-emerald-700",
   };
 
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const [aiResult, setAiResult] = useState<RiskScoreResponse | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      // Step 1: fetch complete inspection data for this establishment
+      const detail = await getLatestInspectionForEstablishment(row.establishmentId);
+      if (!detail) {
+        throw new Error(
+          `No inspection found for "${row.establishmentName}". ` +
+          "The AI cannot analyse risk without inspection data."
+        );
+      }
+      // Step 2: build a real payload using the same helper as the detail page
+      const payload = await buildAIPayload(detail);
+      // Step 3: call the Risk Prioritization Agent
+      return getRiskScore(payload);
+    },
+    onSuccess: (data) => {
+      if (mountedRef.current) {
+        setFetchError(null);
+        setAiResult(data);
+      }
+    },
+    onError: (err) => {
+      if (mountedRef.current) {
+        setFetchError((err as Error).message);
+      }
+    },
+  });
+
+  // Use AI result score/level if available, otherwise fall back to DB values
+  const displayScore = aiResult?.risk_score ?? row.riskScore;
+  const displayLevel = aiResult?.risk_level ?? row.riskLevel;
+
+  return (
+    <div className="border-b border-border/60 last:border-0">
+      {/* Main row — always visible */}
+      <div className="grid grid-cols-[minmax(0,1fr)_80px_56px_auto] gap-2 items-center px-4 py-2.5 text-sm hover:bg-accent/40">
+        <span className="truncate text-foreground font-medium">{row.establishmentName}</span>
+        <Badge
+          variant="secondary"
+          className={`w-fit text-[10px] uppercase ${levelColor[displayLevel] ?? "bg-muted text-muted-foreground"}`}
+        >
+          {displayLevel}
+        </Badge>
+        <span className="text-right tabular-nums text-muted-foreground font-semibold">{displayScore}</span>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 gap-1.5 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+          disabled={mutation.isPending}
+          onClick={() => mutation.mutate()}
+          title="Analyse Risk with AI agent"
+        >
+          <Sparkles className="h-3 w-3 shrink-0" />
+          {mutation.isPending ? "…" : "Analyse"}
+        </Button>
+      </div>
+
+      {/* Inline AI result — shown only when we have data or an error */}
+      {(mutation.isPending || aiResult || mutation.isError) && (
+        <div className="mx-4 mb-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2.5 text-xs space-y-2">
+          {mutation.isPending ? (
+            <div className="space-y-1.5">
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-4/5" />
+            </div>
+          ) : mutation.isError ? (
+            <p className="text-destructive">{fetchError ?? (mutation.error as Error).message}</p>
+          ) : aiResult ? (
+            <>
+              <div className="flex items-center gap-3">
+                <span className="text-muted-foreground">AI Score:</span>
+                <span className="font-semibold tabular-nums text-foreground">{aiResult.risk_score}</span>
+                <Badge
+                  variant="secondary"
+                  className={`text-[10px] uppercase ${levelColor[aiResult.risk_level] ?? "bg-muted text-muted-foreground"}`}
+                >
+                  {aiResult.risk_level}
+                </Badge>
+              </div>
+              <p className="text-muted-foreground leading-relaxed">{aiResult.explanation}</p>
+            </>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PriorityQueueCard({
+  rows,
+  loading,
+}: {
+  rows: { id: string; establishmentName: string; riskScore: number; riskLevel: string; establishmentId: string }[];
+  loading: boolean;
+}) {
   return (
     <Card className="border-border/70 bg-card shadow-sm">
       <CardHeader className="flex-row items-center gap-2 space-y-0 border-b border-border/60 py-3">
@@ -290,14 +414,17 @@ function PriorityQueueCard({
         )}
       </CardHeader>
       <CardContent className="p-0">
-        <div className="grid grid-cols-[minmax(0,1fr)_80px_70px] gap-2 border-b border-border/60 bg-muted/40 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          <span>Establishment</span><span>Risk</span><span className="text-right">Score</span>
+        <div className="grid grid-cols-[minmax(0,1fr)_80px_56px_auto] gap-2 border-b border-border/60 bg-muted/40 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <span>Establishment</span><span>Risk</span><span className="text-right">Score</span><span />
         </div>
         {loading && (
           <div className="divide-y divide-border/60">
-            {[1,2,3].map((i) => (
-              <div key={i} className="grid grid-cols-[minmax(0,1fr)_80px_70px] gap-2 px-4 py-2.5">
-                <Skeleton className="h-4 w-32" /><Skeleton className="h-5 w-14 rounded-full" /><Skeleton className="ml-auto h-4 w-8" />
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="grid grid-cols-[minmax(0,1fr)_80px_56px_auto] gap-2 px-4 py-2.5">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-5 w-14 rounded-full" />
+                <Skeleton className="ml-auto h-4 w-8" />
+                <Skeleton className="h-7 w-16 rounded" />
               </div>
             ))}
           </div>
@@ -309,15 +436,9 @@ function PriorityQueueCard({
           </div>
         )}
         {!loading && rows.length > 0 && (
-          <div className="divide-y divide-border/60">
+          <div>
             {rows.map((r) => (
-              <div key={r.id} className="grid grid-cols-[minmax(0,1fr)_80px_70px] gap-2 px-4 py-2.5 text-sm hover:bg-accent/40">
-                <span className="truncate text-foreground font-medium">{r.establishmentName}</span>
-                <Badge variant="secondary" className={`w-fit text-[10px] uppercase ${levelColor[r.riskLevel] ?? "bg-muted text-muted-foreground"}`}>
-                  {r.riskLevel}
-                </Badge>
-                <span className="text-right tabular-nums text-muted-foreground font-semibold">{r.riskScore}</span>
-              </div>
+              <PriorityQueueRow key={r.id} row={r} />
             ))}
           </div>
         )}

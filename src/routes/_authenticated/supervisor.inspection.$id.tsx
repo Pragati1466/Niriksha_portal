@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   ChevronRight, Building2, User, Calendar, ClipboardList,
   Shield, CheckCircle2, XCircle, RotateCcw, Plus, Brain,
   AlertTriangle, FileText, Camera, Eye, ArrowLeft,
   MessageSquare, ShieldAlert, Info, ImageIcon, Paperclip,
+  Sparkles, ListChecks,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +31,17 @@ import {
   type InspectionDetail,
   type RiskProfileRow,
 } from "@/lib/supervisor.functions";
+import {
+  getRiskScore,
+  verifyEvidence,
+  generateReport,
+  recommendAction,
+  buildAIPayload,
+  type RiskScoreResponse,
+  type EvidenceVerificationResponse,
+  type GeneratedReportResponse,
+  type RecommendActionResponse,
+} from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/_authenticated/supervisor/inspection/$id")({
   head: () => ({ meta: [{ title: "Inspection Review — NIRIKSHA Supervisor" }] }),
@@ -271,11 +283,64 @@ function ChecklistTab({
     );
   }
 
-  // checklist JSONB can be keyed by question text or question ID
-  const checklistEntries = checklist && typeof checklist === "object" ? Object.entries(checklist) : [];
-  const findingsEntries  = findings  && typeof findings  === "object" ? Object.entries(findings)  : [];
+  // ── Normalise checklist into a flat list of {question, answer, observation} ─
+  // The DB stores checklist as JSONB, which can come back as:
+  //   • an array of item objects: [{question, answer, observation, ...}, ...]
+  //   • a flat key→value object: {"fire_exit": "Yes", "water_supply": "No", ...}
+  //   • null / empty
+  type ChecklistItem = { question: string; answer: string; observation: string };
 
-  if (checklistEntries.length === 0 && findingsEntries.length === 0) {
+  function normaliseChecklist(raw: Record<string, unknown> | null | undefined): ChecklistItem[] {
+    if (!raw) return [];
+
+    // Unwrap wrapper object: { items: [...], compliance: 70, ... }
+    // Process raw.items as the rows; ignore non-array sibling keys like "compliance".
+    const source: unknown = Array.isArray((raw as any).items) ? (raw as any).items : raw;
+
+    // Array form: [{question/label/text, answer/response/value, observation/notes/remark, ...}]
+    if (Array.isArray(source)) {
+      return (source as any[]).map((item, i) => {
+        if (typeof item !== "object" || item === null) {
+          return { question: `Item ${i + 1}`, answer: String(item ?? "—"), observation: "" };
+        }
+        const o = item as Record<string, unknown>;
+        const question    = String(o.question ?? o.label ?? o.text ?? o.name ?? `Item ${i + 1}`);
+        const answerRaw   = o.answer ?? o.response ?? o.value ?? o.status ?? null;
+        const answer      = answerRaw !== null ? String(answerRaw) : "—";
+        const obsRaw      = o.observation ?? o.notes ?? o.remark ?? o.details ?? null;
+        const observation = obsRaw !== null ? String(obsRaw) : "";
+        return { question, answer, observation };
+      });
+    }
+
+    // Flat object form: {"key": value, ...}
+    // Skip keys whose value is an array or object (e.g. a nested items array already handled above).
+    return Object.entries(raw)
+      .filter(([, val]) => val === null || typeof val !== "object")
+      .map(([key, val]) => ({
+        question: key.replace(/_/g, " "),
+        answer: val === null || val === undefined ? "—" : String(val),
+        observation: "",
+      }));
+  }
+
+  const items = normaliseChecklist(checklist);
+
+  // findings can also be array or flat object — normalise the same way
+  const findingItems = normaliseChecklist(findings as Record<string, unknown> | null);
+
+  const answerColour = (ans: string): string => {
+    const lv = ans.toLowerCase();
+    if (lv === "yes" || lv === "pass" || lv === "true" || lv === "compliant")
+      return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+    if (lv === "no" || lv === "fail" || lv === "false" || lv === "non-compliant")
+      return "bg-destructive/10 text-destructive";
+    if (lv === "na" || lv === "n/a" || lv === "not applicable")
+      return "bg-muted text-muted-foreground";
+    return "bg-primary/10 text-primary";
+  };
+
+  if (items.length === 0 && findingItems.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
         <ClipboardList className="h-6 w-6 text-muted-foreground/50" />
@@ -287,32 +352,35 @@ function ChecklistTab({
 
   return (
     <div className="p-4 space-y-2">
-      <div className="mb-3 grid grid-cols-[minmax(0,2fr)_120px_minmax(0,1fr)] gap-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        <span>Field</span><span>Value</span><span>Detail</span>
-      </div>
-      {checklistEntries.map(([key, val]) => {
-        const strVal = String(val ?? "—");
-        const lv = strVal.toLowerCase();
-        const cls =
-          lv === "yes" || lv === "pass" || lv === "true"   ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" :
-          lv === "no"  || lv === "fail" || lv === "false"  ? "bg-destructive/10 text-destructive" :
-          lv === "na"  || lv === "n/a"                     ? "bg-muted text-muted-foreground" :
-          "bg-primary/10 text-primary";
-        return (
-          <div key={key} className="grid grid-cols-[minmax(0,2fr)_120px_minmax(0,1fr)] gap-3 rounded-md border border-border/60 bg-background px-3 py-2.5 text-sm">
-            <span className="text-foreground capitalize">{key.replace(/_/g, " ")}</span>
-            <Badge variant="secondary" className={`w-fit text-[10px] uppercase tracking-wide ${cls}`}>{strVal}</Badge>
-            <span className="text-xs text-muted-foreground">—</span>
-          </div>
-        );
-      })}
-      {findingsEntries.length > 0 && (
+      {items.length > 0 && (
         <>
-          <div className="pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Findings</div>
-          {findingsEntries.map(([key, val]) => (
-            <div key={key} className="rounded-md border border-border/60 bg-background px-3 py-2.5 text-sm">
-              <span className="font-medium capitalize text-foreground">{key.replace(/_/g, " ")}: </span>
-              <span className="text-muted-foreground">{String(val ?? "—")}</span>
+          <div className="mb-3 grid grid-cols-[minmax(0,2fr)_100px_minmax(0,1fr)] gap-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <span>Question</span><span>Answer</span><span>Observation</span>
+          </div>
+          {items.map((item, i) => (
+            <div key={i} className="grid grid-cols-[minmax(0,2fr)_100px_minmax(0,1fr)] gap-3 rounded-md border border-border/60 bg-background px-3 py-2.5 text-sm">
+              <span className="text-foreground capitalize leading-snug">{item.question}</span>
+              <Badge variant="secondary" className={`w-fit h-fit text-[10px] uppercase tracking-wide ${answerColour(item.answer)}`}>
+                {item.answer}
+              </Badge>
+              <span className="text-xs text-muted-foreground leading-snug">
+                {item.observation || "—"}
+              </span>
+            </div>
+          ))}
+        </>
+      )}
+
+      {findingItems.length > 0 && (
+        <>
+          <div className="pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Findings</div>
+          {findingItems.map((item, i) => (
+            <div key={i} className="rounded-md border border-border/60 bg-background px-3 py-2.5 text-sm">
+              <span className="font-medium capitalize text-foreground">{item.question}: </span>
+              <span className="text-muted-foreground">{item.answer}</span>
+              {item.observation && (
+                <p className="mt-0.5 text-xs text-muted-foreground">{item.observation}</p>
+              )}
             </div>
           ))}
         </>
@@ -328,9 +396,40 @@ function EvidenceTab({
   evidenceSummary: Record<string, unknown> | null | undefined;
   loading: boolean;
 }) {
-  const imageCount    = typeof evidenceSummary?.images    === "number" ? evidenceSummary.images    : null;
-  const docCount      = typeof evidenceSummary?.documents === "number" ? evidenceSummary.documents : null;
-  const totalCount    = imageCount !== null && docCount !== null ? imageCount + docCount : null;
+  // Resolve image count from any common key name the DB might use
+  const imageCount: number | null = (() => {
+    if (!evidenceSummary) return null;
+    const v = evidenceSummary.images
+      ?? evidenceSummary.image_count
+      ?? evidenceSummary.total_images
+      ?? evidenceSummary.photos
+      ?? null;
+    return typeof v === "number" ? v : v !== null && v !== undefined ? Number(v) || null : null;
+  })();
+
+  // Resolve document count
+  const docCount: number | null = (() => {
+    if (!evidenceSummary) return null;
+    const v = evidenceSummary.documents
+      ?? evidenceSummary.document_count
+      ?? evidenceSummary.docs
+      ?? evidenceSummary.files
+      ?? null;
+    return typeof v === "number" ? v : v !== null && v !== undefined ? Number(v) || null : null;
+  })();
+
+  const totalCount =
+    imageCount !== null && docCount !== null ? imageCount + docCount : imageCount ?? docCount ?? null;
+
+  // All other keys in evidence_summary that aren't images/documents —
+  // render them as a generic key-value list so no data is hidden.
+  const knownKeys = new Set([
+    "images", "image_count", "total_images", "photos",
+    "documents", "document_count", "docs", "files",
+  ]);
+  const extraEntries = evidenceSummary
+    ? Object.entries(evidenceSummary).filter(([k]) => !knownKeys.has(k))
+    : [];
 
   return (
     <div className="p-4 space-y-4">
@@ -347,7 +446,7 @@ function EvidenceTab({
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
             {[1,2,3].map((i) => <Skeleton key={i} className="aspect-square rounded-md" />)}
           </div>
-        ) : imageCount === 0 || imageCount === null ? (
+        ) : imageCount === null || imageCount === 0 ? (
           <div className="rounded-md border border-dashed border-border/60 bg-muted/20 px-4 py-4 text-center">
             <Camera className="mx-auto h-5 w-5 text-muted-foreground/50" />
             <p className="mt-1 text-xs text-muted-foreground">No images uploaded.</p>
@@ -407,12 +506,47 @@ function EvidenceTab({
           ))}
         </div>
       </div>
+
+      {/* Extra fields from evidence_summary that don't map to images/documents */}
+      {!loading && extraEntries.length > 0 && (
+        <div>
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Additional Evidence Data
+          </div>
+          <div className="space-y-1.5">
+            {extraEntries.map(([key, val]) => (
+              <div key={key} className="flex items-start justify-between gap-3 rounded-md border border-border/60 bg-background px-3 py-2 text-sm">
+                <span className="capitalize text-foreground">{key.replace(/_/g, " ")}</span>
+                <span className="text-right text-xs text-muted-foreground break-all">
+                  {val === null || val === undefined
+                    ? "—"
+                    : typeof val === "object"
+                      ? JSON.stringify(val)
+                      : String(val)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Fallback: evidence_summary exists but all counts are null — show raw */}
+      {!loading && evidenceSummary && imageCount === null && docCount === null && extraEntries.length === 0 && (
+        <div>
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Raw Evidence Data
+          </div>
+          <pre className="rounded-md border border-border/60 bg-muted/20 p-3 text-[11px] text-foreground overflow-x-auto whitespace-pre-wrap break-all">
+            {JSON.stringify(evidenceSummary, null, 2)}
+          </pre>
+        </div>
+      )}
     </div>
   );
 }
 
 /* ─────────────────────────────────────────────────────────────
-   AI Decision Support — risk from DB, agent outputs empty
+   AI Decision Support — live agent calls
 ───────────────────────────────────────────────────────────── */
 
 function AIDecisionSupportSection({
@@ -428,23 +562,35 @@ function AIDecisionSupportSection({
         <Brain className="h-3.5 w-3.5" />
         AI Decision Intelligence
       </div>
-      <RiskAnalysisCard riskProfile={riskProfile} riskScoreAtInspection={inspection?.riskScoreAtInspection ?? null} />
-      <EvidenceVerificationCard />
-      <AIReportCard />
+      <RiskAnalysisCard riskProfile={riskProfile} inspection={inspection} />
+      <EvidenceVerificationCard inspection={inspection} />
+      <AIReportCard inspection={inspection} />
+      <RecommendActionCard inspection={inspection} />
     </div>
   );
 }
 
 function RiskAnalysisCard({
   riskProfile,
-  riskScoreAtInspection,
+  inspection,
 }: {
   riskProfile: RiskProfileRow | null;
-  riskScoreAtInspection: number | null;
+  inspection: InspectionDetail | null;
 }) {
-  // Use risk_profiles table if available, fall back to risk_score_at_inspection from inspections
-  const score = riskProfile?.riskScore ?? riskScoreAtInspection ?? null;
-  const level = riskProfile?.riskLevel ?? null;
+  const [aiResult, setAiResult] = useState<RiskScoreResponse | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!inspection) throw new Error("No inspection data");
+      return getRiskScore(await buildAIPayload(inspection));
+    },
+    onSuccess: (data) => setAiResult(data),
+  });
+
+  // Prefer live AI result → DB risk_profile → inspection snapshot
+  const score = aiResult?.risk_score ?? riskProfile?.riskScore ?? inspection?.riskScoreAtInspection ?? null;
+  const level = aiResult?.risk_level ?? riskProfile?.riskLevel ?? null;
+  const explanation = aiResult?.explanation ?? null;
 
   const levelColor: Record<string, string> = {
     Critical: "bg-destructive text-destructive-foreground",
@@ -463,20 +609,20 @@ function RiskAnalysisCard({
           <CardTitle className="text-sm font-semibold text-foreground">Risk Analysis</CardTitle>
           <p className="text-[11px] text-muted-foreground">Risk Prioritization Agent</p>
         </div>
-        <AIAgentBadge />
+        <AIAgentBadge active={mutation.isPending} />
       </CardHeader>
       <CardContent className="p-4 space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-md border border-border/60 bg-background p-3">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Risk Score</div>
             <div className="mt-1.5 text-2xl font-semibold tabular-nums text-foreground">
-              {score !== null ? score : <span className="text-sm text-muted-foreground">—</span>}
+              {mutation.isPending ? <Skeleton className="h-7 w-10" /> : score !== null ? score : <span className="text-sm text-muted-foreground">—</span>}
             </div>
           </div>
           <div className="rounded-md border border-border/60 bg-background p-3">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Risk Level</div>
             <div className="mt-1.5">
-              {level ? (
+              {mutation.isPending ? <Skeleton className="h-5 w-16 rounded-full" /> : level ? (
                 <Badge variant="secondary" className={`text-[10px] uppercase tracking-wide ${levelColor[level] ?? "bg-muted text-muted-foreground"}`}>{level}</Badge>
               ) : (
                 <span className="text-sm text-muted-foreground">—</span>
@@ -490,8 +636,7 @@ function RiskAnalysisCard({
           </div>
           <Progress value={score ?? 0} className="h-2" />
         </div>
-        {/* Factors from risk_profiles */}
-        {riskProfile?.factors && Object.keys(riskProfile.factors).length > 0 && (
+        {riskProfile?.factors && Object.keys(riskProfile.factors).length > 0 && !aiResult && (
           <div>
             <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Risk Factors</div>
             <div className="space-y-1">
@@ -506,16 +651,49 @@ function RiskAnalysisCard({
         )}
         <div>
           <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">AI Explanation</div>
-          <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground italic">
-            Awaiting Risk Prioritization Agent output via POST /risk-score.
-          </div>
+          {mutation.isPending ? (
+            <div className="space-y-1.5">
+              <Skeleton className="h-3 w-full" /><Skeleton className="h-3 w-4/5" />
+            </div>
+          ) : explanation ? (
+            <p className="rounded-md border border-border/60 bg-muted/20 px-3 py-2.5 text-xs text-foreground">{explanation}</p>
+          ) : (
+            <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground italic">
+              {mutation.isError ? `Error: ${(mutation.error as Error).message}` : "Click Analyse Risk to run the agent."}
+            </div>
+          )}
         </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full gap-2"
+          disabled={mutation.isPending || !inspection}
+          onClick={() => mutation.mutate()}
+        >
+          <ShieldAlert className="h-3.5 w-3.5" />
+          {mutation.isPending ? "Analysing…" : "Analyse Risk"}
+        </Button>
       </CardContent>
     </Card>
   );
 }
 
-function EvidenceVerificationCard() {
+function EvidenceVerificationCard({ inspection }: { inspection: InspectionDetail | null }) {
+  const [aiResult, setAiResult] = useState<EvidenceVerificationResponse | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!inspection) throw new Error("No inspection data");
+      return verifyEvidence(await buildAIPayload(inspection));
+    },
+    onSuccess: (data) => setAiResult(data),
+  });
+
+  const confidence = aiResult?.confidence_score ?? null;
+  const suspicious = aiResult?.flagged_suspicious ?? null;
+  const mismatches = aiResult?.mismatches ?? [];
+  const explanation = aiResult?.explanation ?? null;
+
   return (
     <Card className="border-amber-500/20 bg-card shadow-sm">
       <CardHeader className="flex-row items-center gap-3 space-y-0 border-b border-border/60 py-3">
@@ -526,43 +704,97 @@ function EvidenceVerificationCard() {
           <CardTitle className="text-sm font-semibold text-foreground">Evidence Verification</CardTitle>
           <p className="text-[11px] text-muted-foreground">Evidence Verification Agent</p>
         </div>
-        <AIAgentBadge />
+        <AIAgentBadge active={mutation.isPending} />
       </CardHeader>
       <CardContent className="p-4 space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-md border border-border/60 bg-background p-3">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Confidence</div>
-            <div className="mt-1.5 h-7 w-16 rounded bg-muted/60" />
+            <div className="mt-1.5 text-2xl font-semibold tabular-nums text-foreground">
+              {mutation.isPending ? <Skeleton className="h-7 w-10" /> : confidence !== null ? `${confidence}%` : <span className="text-sm text-muted-foreground">—</span>}
+            </div>
           </div>
           <div className="rounded-md border border-border/60 bg-background p-3">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Suspicious</div>
-            <div className="mt-1.5 h-6 w-10 rounded bg-muted/60" />
+            <div className="mt-1.5">
+              {mutation.isPending ? <Skeleton className="h-5 w-10 rounded-full" /> : suspicious !== null ? (
+                <Badge variant="secondary" className={suspicious ? "bg-destructive/10 text-destructive" : "bg-emerald-500/10 text-emerald-700"}>
+                  {suspicious ? "Yes" : "No"}
+                </Badge>
+              ) : <span className="text-sm text-muted-foreground">—</span>}
+            </div>
           </div>
         </div>
         <div>
           <div className="mb-1.5 flex justify-between text-[10px] text-muted-foreground">
             <span>Confidence Score</span><span>0 – 100%</span>
           </div>
-          <Progress value={0} className="h-2" />
+          <Progress value={confidence ?? 0} className="h-2" />
         </div>
         <div>
           <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Detected Mismatches</div>
-          <div className="rounded-md border border-dashed border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-            Awaiting Evidence Verification Agent output via POST /verify-evidence.
-          </div>
+          {mutation.isPending ? (
+            <div className="space-y-1"><Skeleton className="h-3 w-full" /><Skeleton className="h-3 w-3/4" /></div>
+          ) : mismatches.length > 0 ? (
+            <ul className="space-y-1 rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+              {mismatches.map((m, i) => (
+                <li key={i} className="flex items-start gap-1.5 text-xs text-foreground">
+                  <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" />
+                  {m}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="rounded-md border border-dashed border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+              {mutation.isError ? `Error: ${(mutation.error as Error).message}` : aiResult ? "No mismatches detected." : "Click Verify Evidence to run the agent."}
+            </div>
+          )}
         </div>
         <div>
           <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">AI Explanation</div>
-          <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground italic">
-            Awaiting Evidence Verification Agent output.
-          </div>
+          {mutation.isPending ? (
+            <div className="space-y-1.5"><Skeleton className="h-3 w-full" /><Skeleton className="h-3 w-4/5" /></div>
+          ) : explanation ? (
+            <p className="rounded-md border border-border/60 bg-muted/20 px-3 py-2.5 text-xs text-foreground">{explanation}</p>
+          ) : (
+            <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground italic">
+              Awaiting Evidence Verification Agent output.
+            </div>
+          )}
         </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full gap-2"
+          disabled={mutation.isPending || !inspection}
+          onClick={() => mutation.mutate()}
+        >
+          <Eye className="h-3.5 w-3.5" />
+          {mutation.isPending ? "Verifying…" : "Verify Evidence"}
+        </Button>
       </CardContent>
     </Card>
   );
 }
 
-function AIReportCard() {
+function AIReportCard({ inspection }: { inspection: InspectionDetail | null }) {
+  const [aiResult, setAiResult] = useState<GeneratedReportResponse | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!inspection) throw new Error("No inspection data");
+      return generateReport(await buildAIPayload(inspection));
+    },
+    onSuccess: (data) => setAiResult(data),
+  });
+
+  const sections: { label: string; accent?: "destructive"; value: string | null }[] = [
+    { label: "Executive Summary",   value: aiResult?.report_summary ?? null },
+    { label: "Violation Notice",    accent: "destructive", value: aiResult?.violation_notice ?? null },
+    { label: "Recommended Actions", value: aiResult ? aiResult.recommended_actions.join("\n• ") || null : null },
+    { label: "Corrective Actions",  value: aiResult ? aiResult.corrective_actions.join("\n• ")  || null : null },
+  ];
+
   return (
     <Card className="border-primary/20 bg-card shadow-sm">
       <CardHeader className="flex-row items-center gap-3 space-y-0 border-b border-border/60 py-3">
@@ -573,37 +805,113 @@ function AIReportCard() {
           <CardTitle className="text-sm font-semibold text-foreground">Generated Report</CardTitle>
           <p className="text-[11px] text-muted-foreground">Report Generation Agent</p>
         </div>
-        <AIAgentBadge />
+        <AIAgentBadge active={mutation.isPending} />
       </CardHeader>
       <CardContent className="p-4 space-y-3">
-        {[
-          { label: "Executive Summary",   accent: undefined },
-          { label: "Violation Notice",    accent: "destructive" as const },
-          { label: "Recommended Actions", accent: undefined },
-          { label: "Corrective Actions",  accent: undefined },
-        ].map(({ label, accent }) => (
+        {sections.map(({ label, accent, value }) => (
           <div key={label}>
             <div className={`mb-1 text-[10px] font-semibold uppercase tracking-wider ${accent === "destructive" ? "text-destructive" : "text-muted-foreground"}`}>
               {label}
             </div>
-            <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground italic min-h-[40px]">
-              Awaiting Report Generation Agent output via POST /generate-report.
-            </div>
+            {mutation.isPending ? (
+              <div className="space-y-1"><Skeleton className="h-3 w-full" /><Skeleton className="h-3 w-3/4" /></div>
+            ) : value ? (
+              <p className="rounded-md border border-border/60 bg-muted/20 px-3 py-2.5 text-xs text-foreground whitespace-pre-line min-h-[40px]">{value}</p>
+            ) : (
+              <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground italic min-h-[40px]">
+                {mutation.isError ? `Error: ${(mutation.error as Error).message}` : "Click Generate Report to run the agent."}
+              </div>
+            )}
           </div>
         ))}
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full gap-2"
+          disabled={mutation.isPending || !inspection}
+          onClick={() => mutation.mutate()}
+        >
+          <FileText className="h-3.5 w-3.5" />
+          {mutation.isPending ? "Generating…" : "Generate Report"}
+        </Button>
       </CardContent>
     </Card>
   );
 }
 
-function AIAgentBadge() {
+function RecommendActionCard({ inspection }: { inspection: InspectionDetail | null }) {
+  const [aiResult, setAiResult] = useState<RecommendActionResponse | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!inspection) throw new Error("No inspection data");
+      return recommendAction(await buildAIPayload(inspection));
+    },
+    onSuccess: (data) => setAiResult(data),
+  });
+
+  return (
+    <Card className="border-emerald-500/20 bg-card shadow-sm">
+      <CardHeader className="flex-row items-center gap-3 space-y-0 border-b border-border/60 py-3">
+        <div className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-emerald-500/10">
+          <ListChecks className="h-4 w-4 text-emerald-600" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <CardTitle className="text-sm font-semibold text-foreground">Recommended Actions</CardTitle>
+          <p className="text-[11px] text-muted-foreground">Report Generation Agent</p>
+        </div>
+        <AIAgentBadge active={mutation.isPending} />
+      </CardHeader>
+      <CardContent className="p-4 space-y-3">
+        {(["Recommended Actions", "Corrective Actions"] as const).map((label) => {
+          const items = label === "Recommended Actions"
+            ? (aiResult?.recommended_actions ?? [])
+            : (aiResult?.corrective_actions ?? []);
+          return (
+            <div key={label}>
+              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
+              {mutation.isPending ? (
+                <div className="space-y-1"><Skeleton className="h-3 w-full" /><Skeleton className="h-3 w-3/4" /></div>
+              ) : items.length > 0 ? (
+                <ul className="space-y-1 rounded-md border border-border/60 bg-muted/20 px-3 py-2">
+                  {items.map((item, i) => (
+                    <li key={i} className="flex items-start gap-1.5 text-xs text-foreground">
+                      <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-emerald-500" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="rounded-md border border-dashed border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                  {mutation.isError ? `Error: ${(mutation.error as Error).message}` : "Click Recommend Action to run the agent."}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full gap-2"
+          disabled={mutation.isPending || !inspection}
+          onClick={() => mutation.mutate()}
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          {mutation.isPending ? "Processing…" : "Recommend Action"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AIAgentBadge({ active = false }: { active?: boolean }) {
   return (
     <div className="flex items-center gap-1.5">
       <span className="relative flex h-2 w-2">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/40" />
-        <span className="relative inline-flex h-2 w-2 rounded-full bg-primary/60" />
+        {active && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/40" />}
+        <span className={`relative inline-flex h-2 w-2 rounded-full ${active ? "bg-primary" : "bg-primary/60"}`} />
       </span>
-      <span className="text-[10px] text-muted-foreground">AI</span>
+      <span className="text-[10px] text-muted-foreground">{active ? "Running…" : "AI"}</span>
     </div>
   );
 }

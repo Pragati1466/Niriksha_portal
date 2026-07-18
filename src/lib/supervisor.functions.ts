@@ -58,6 +58,10 @@ export type QueueRow = {
 
 export type InspectionDetail = {
   id: string;
+  /** Raw FK — used by AI payload builder. */
+  _establishmentId: string;
+  /** Raw FK — used by AI payload builder. */
+  _departmentId: string;
   establishmentName: string;
   establishmentAddress: string | null;
   registrationNumber: string;
@@ -401,6 +405,8 @@ export async function getInspectionDetail(inspectionId: string): Promise<Inspect
 
   return {
     id: d.id,
+    _establishmentId: d.establishment?.id ?? "",
+    _departmentId: d.department?.id ?? "",
     establishmentName: d.establishment?.name ?? "—",
     establishmentAddress: d.establishment?.address ?? null,
     registrationNumber: d.establishment?.registration_number ?? "—",
@@ -609,6 +615,191 @@ export async function getCompletedInspections(filters?: {
   }
 
   return rows;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Latest inspection detail for a given establishment
+   Used by Risk Monitoring so the AI payload is real, not synthetic.
+   Returns the most-recent inspection (any status) for this
+   supervisor's scoped establishment, or null if none exists.
+───────────────────────────────────────────────────────────── */
+
+export async function getLatestInspectionForEstablishment(
+  establishmentId: string,
+): Promise<InspectionDetail | null> {
+  const uid = await currentUserId();
+
+  const { data, error } = await supabase
+    .from("inspections")
+    .select(`
+      id,
+      inspector_id,
+      scheduled_date,
+      actual_date,
+      status,
+      checklist,
+      findings,
+      risk_score_at_inspection,
+      evidence_summary,
+      notes,
+      created_at,
+      establishment:establishments(id, name, registration_number, address),
+      department:departments(id, name, code)
+    `)
+    .eq("supervisor_id", uid)
+    .eq("establishment_id", establishmentId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+
+  const d = data as any;
+
+  const profileMap = await fetchProfileMap(d.inspector_id ? [d.inspector_id] : []);
+  const inspector  = profileMap.get(d.inspector_id) ?? { name: "", email: "" };
+
+  return {
+    id: d.id,
+    _establishmentId: d.establishment?.id ?? establishmentId,
+    _departmentId: d.department?.id ?? "",
+    establishmentName: d.establishment?.name ?? "—",
+    establishmentAddress: d.establishment?.address ?? null,
+    registrationNumber: d.establishment?.registration_number ?? "—",
+    departmentName: d.department?.name ?? "—",
+    departmentCode: d.department?.code ?? "—",
+    inspectorName: inspector.name || inspector.email || "—",
+    inspectorEmail: inspector.email || "—",
+    scheduledDate: d.scheduled_date ?? "—",
+    actualDate: d.actual_date ?? null,
+    status: d.status,
+    checklist: d.checklist as Record<string, unknown> | null,
+    findings: d.findings as Record<string, unknown> | null,
+    riskScoreAtInspection: d.risk_score_at_inspection ?? null,
+    evidenceSummary: d.evidence_summary as Record<string, unknown> | null,
+    notes: d.notes ?? null,
+    createdAt: d.created_at,
+  };
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Complaints for a given establishment
+   Used by buildAIPayload so the risk agent receives real complaint
+   data instead of an empty array.
+───────────────────────────────────────────────────────────── */
+
+export type ComplaintRow = {
+  complaint_id: string;
+  establishment_id: string;
+  department_id: string;
+  description: string;
+  category: string;
+  priority: string;
+  status: string;
+  created_at: string;
+};
+
+export async function getComplaintsForEstablishment(
+  establishmentId: string,
+): Promise<ComplaintRow[]> {
+  // Column names verified against types.ts: id, establishment_id, department_id,
+  // description, category, priority, status, created_at
+  const { data, error } = await supabase
+    .from("complaints")
+    .select("id, establishment_id, department_id, description, category, priority, status, created_at")
+    .eq("establishment_id", establishmentId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (error) throw new Error(error.message);
+
+  return ((data ?? []) as any[]).map((r) => ({
+    complaint_id: r.id,
+    establishment_id: r.establishment_id,
+    department_id: r.department_id,
+    description: r.description ?? "",
+    category: r.category ?? "General",
+    priority: r.priority ?? "Low",
+    status: r.status ?? "Pending",
+    created_at: r.created_at,
+  }));
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Past inspection history for a given establishment
+   Used by buildAIPayload so the risk agent receives real history
+   instead of an empty array.  Excludes the current inspection
+   (matched by excludeInspectionId) and limits to the 10 most recent.
+───────────────────────────────────────────────────────────── */
+
+export type PastInspectionRow = {
+  inspection_id: string;
+  establishment_id: string;
+  department_id: string;
+  inspector_id: string;
+  supervisor_id: string;
+  scheduled_date: string;
+  actual_date: string;
+  status: string;
+  checklist: Record<string, unknown>;
+  findings: string;
+  risk_score_at_inspection: number;
+  evidence_summary: Record<string, unknown>;
+  created_at: string;
+};
+
+export async function getInspectionHistoryForEstablishment(
+  establishmentId: string,
+  excludeInspectionId: string,
+): Promise<PastInspectionRow[]> {
+  // Uses a SECURITY DEFINER RPC so the query bypasses the inspections RLS
+  // policy.  The RPC enforces its own caller-ownership check: it returns rows
+  // only when the authenticated user supervises at least one inspection for
+  // this establishment.  This allows supervisors to read prior inspection
+  // history for the same establishment even when those inspections were
+  // assigned to different supervisor_ids.
+  const { data, error } = await (supabase as any).rpc(
+    "get_establishment_inspection_history",
+    {
+      p_establishment_id:      establishmentId,
+      p_exclude_inspection_id: excludeInspectionId,
+    },
+  );
+
+  if (error) throw new Error(error.message);
+
+  // TEMPORARY TRACE — dump raw RPC row shape before mapping
+  const _rows = (data ?? []) as any[];
+  if (_rows.length > 0) {
+    console.log(
+      "[TRACE] getInspectionHistoryForEstablishment raw RPC columns:",
+      Object.keys(_rows[0]),
+    );
+    console.log("[TRACE] raw row[0]:", _rows[0]);
+  }
+
+  return _rows.map((r) => ({
+    // The RPC may return the PK as "inspection_id" (aliased) or "id" (raw).
+    // Try inspection_id first; fall back to id.
+    inspection_id:    r.inspection_id    ?? r.id             ?? "",
+    establishment_id: r.establishment_id ?? "",
+    department_id:    r.department_id    ?? "",
+    inspector_id:     r.inspector_id     ?? "",
+    supervisor_id:    r.supervisor_id    ?? "",
+    scheduled_date:   r.scheduled_date   ?? new Date().toISOString(),
+    actual_date:      r.actual_date ?? r.scheduled_date ?? new Date().toISOString(),
+    status:           r.status           ?? "completed",
+    checklist: (r.checklist as Record<string, unknown>) ?? {},
+    // findings is Json in the DB (can be string scalar, object, or null).
+    // Normalise to string so the AI schema (findings: str) always gets a string.
+    findings: typeof r.findings === "string"
+      ? r.findings
+      : JSON.stringify(r.findings ?? {}),
+    risk_score_at_inspection: Math.round(Number(r.risk_score_at_inspection ?? 0)),
+    evidence_summary: (r.evidence_summary as Record<string, unknown>) ?? {},
+    created_at: r.created_at ?? new Date().toISOString(),
+  }));
 }
 
 /* ─────────────────────────────────────────────────────────────
