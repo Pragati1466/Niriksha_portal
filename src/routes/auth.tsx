@@ -28,7 +28,7 @@ function AuthPage() {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) navigate({ to: "/admin" });
+      if (data.user) redirectForRole(navigate, data.user.id);
     });
   }, [navigate]);
 
@@ -176,11 +176,11 @@ function SignInCard() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error, data } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Signed in");
-    navigate({ to: "/admin" });
+    if (data.user) await redirectForRole(navigate, data.user.id);
   }
 
   return (
@@ -360,4 +360,21 @@ function BootstrapCard({ onDone, bootstrapFn }: { onDone: () => void; bootstrapF
       </Card>
     </div>
   );
+}
+
+async function redirectForRole(navigate: any, userId: string) {
+  const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+  if (error) {
+    toast.error(`Could not verify portal access: ${error.message}`);
+    return;
+  }
+  if (data?.some((r) => r.role === "inspector")) {
+    navigate({ to: "/inspector" });
+    return;
+  }
+  if (data?.some((r) => r.role === "admin")) {
+    navigate({ to: "/admin" });
+    return;
+  }
+  toast.error("This account has no Inspector or Admin portal role. Ask an administrator to assign one.");
 }

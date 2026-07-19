@@ -1,0 +1,318 @@
+-- Normalized inspector workflow records. The inspections table remains the
+-- assignment header; responses, evidence, and history are stored separately.
+
+-- =========================================================
+-- 1. INSPECTION RESPONSES
+-- Store checklist responses per inspection
+-- =========================================================
+CREATE TABLE IF NOT EXISTS public.inspection_responses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  inspection_id UUID NOT NULL REFERENCES public.inspections(id) ON DELETE CASCADE,
+  checklist_item_id TEXT NOT NULL,
+  response TEXT NOT NULL,
+  finding TEXT,
+  responded_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  responded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (inspection_id, checklist_item_id)
+);
+
+-- =========================================================
+-- 2. EVIDENCE
+-- Store uploaded images, documents, and inspector observations
+-- =========================================================
+CREATE TABLE IF NOT EXISTS public.evidence (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  inspection_id UUID NOT NULL REFERENCES public.inspections(id) ON DELETE CASCADE,
+  evidence_type TEXT NOT NULL CHECK (evidence_type IN ('image', 'document', 'observation')),
+  file_name TEXT,
+  file_type TEXT,
+  file_size BIGINT,
+  storage_path TEXT,
+  storage_bucket TEXT DEFAULT 'niriksha-evidence',
+  observation TEXT,
+  location_text TEXT,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  captured_at TIMESTAMPTZ,
+  uploaded_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- =========================================================
+-- 3. INSPECTION HISTORY
+-- Maintain completed inspection records with snapshot
+-- =========================================================
+CREATE TABLE IF NOT EXISTS public.inspection_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  inspection_id UUID NOT NULL UNIQUE REFERENCES public.inspections(id) ON DELETE CASCADE,
+  inspector_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  action TEXT NOT NULL DEFAULT 'submitted',
+  status TEXT NOT NULL,
+  snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,
+  completed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- =========================================================
+-- 4. INDEXES
+-- =========================================================
+CREATE INDEX IF NOT EXISTS inspection_responses_inspection_idx ON public.inspection_responses(inspection_id);
+CREATE INDEX IF NOT EXISTS inspection_responses_checklist_idx ON public.inspection_responses(checklist_item_id);
+CREATE INDEX IF NOT EXISTS evidence_inspection_idx ON public.evidence(inspection_id);
+CREATE INDEX IF NOT EXISTS evidence_type_idx ON public.evidence(evidence_type);
+CREATE INDEX IF NOT EXISTS evidence_uploaded_by_idx ON public.evidence(uploaded_by);
+CREATE INDEX IF NOT EXISTS inspection_history_inspector_idx ON public.inspection_history(inspector_id, completed_at DESC);
+CREATE INDEX IF NOT EXISTS inspection_history_status_idx ON public.inspection_history(status);
+
+-- =========================================================
+-- 5. GRANTS
+-- =========================================================
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.inspection_responses TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.evidence TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.inspection_history TO authenticated;
+GRANT ALL ON public.inspection_responses TO service_role;
+GRANT ALL ON public.evidence TO service_role;
+GRANT ALL ON public.inspection_history TO service_role;
+
+-- =========================================================
+-- 6. ROW LEVEL SECURITY
+-- =========================================================
+ALTER TABLE public.inspection_responses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.evidence ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inspection_history ENABLE ROW LEVEL SECURITY;
+
+-- Inspection responses: inspector, supervisor, or admin can access
+CREATE POLICY "inspection_responses_owner_access" ON public.inspection_responses FOR ALL TO authenticated
+  USING (EXISTS (SELECT 1 FROM public.inspections i WHERE i.id = inspection_id AND (i.inspector_id = auth.uid() OR i.supervisor_id = auth.uid() OR public.has_role(auth.uid(), 'admin'))))
+  WITH CHECK (EXISTS (SELECT 1 FROM public.inspections i WHERE i.id = inspection_id AND (i.inspector_id = auth.uid() OR i.supervisor_id = auth.uid() OR public.has_role(auth.uid(), 'admin'))));
+
+-- Evidence: inspector, supervisor, or admin can access
+CREATE POLICY "evidence_owner_access" ON public.evidence FOR ALL TO authenticated
+  USING (EXISTS (SELECT 1 FROM public.inspections i WHERE i.id = inspection_id AND (i.inspector_id = auth.uid() OR i.supervisor_id = auth.uid() OR public.has_role(auth.uid(), 'admin'))))
+  WITH CHECK (EXISTS (SELECT 1 FROM public.inspections i WHERE i.id = inspection_id AND (i.inspector_id = auth.uid() OR i.supervisor_id = auth.uid() OR public.has_role(auth.uid(), 'admin'))));
+
+-- Inspection history: inspector (self), supervisor (own inspections), or admin can read
+CREATE POLICY "inspection_history_owner_read" ON public.inspection_history FOR SELECT TO authenticated
+  USING (inspector_id = auth.uid() OR public.has_role(auth.uid(), 'admin') OR EXISTS (SELECT 1 FROM public.inspections i WHERE i.id = inspection_id AND i.supervisor_id = auth.uid()));
+
+-- Allow service_role to insert/update history (used by submit flow)
+CREATE POLICY "inspection_history_service_insert" ON public.inspection_history FOR INSERT TO authenticated
+  WITH CHECK (inspector_id = auth.uid() OR public.has_role(auth.uid(), 'admin'));
+
+CREATE POLICY "inspection_history_service_update" ON public.inspection_history FOR UPDATE TO authenticated
+  USING (inspector_id = auth.uid() OR public.has_role(auth.uid(), 'admin'))
+  WITH CHECK (inspector_id = auth.uid() OR public.has_role(auth.uid(), 'admin'));
+
+-- =========================================================
+-- 7. HELPER: Get full inspection detail with related data
+--     Fetches inspection + responses + evidence + history
+-- =========================================================
+CREATE OR REPLACE FUNCTION public.get_inspection_detail(p_inspection_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_result JSONB;
+  v_inspector_id UUID;
+BEGIN
+  -- Check access: the caller must be the inspector, supervisor, or admin
+  SELECT i.inspector_id INTO v_inspector_id
+  FROM public.inspections i
+  WHERE i.id = p_inspection_id;
+
+  IF v_inspector_id IS NULL THEN
+    RAISE EXCEPTION 'Inspection not found';
+  END IF;
+
+  IF auth.uid() != v_inspector_id
+     AND NOT EXISTS (SELECT 1 FROM public.inspections i2 WHERE i2.id = p_inspection_id AND i2.supervisor_id = auth.uid())
+     AND NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Access denied';
+  END IF;
+
+  SELECT jsonb_build_object(
+    'inspection', to_jsonb(i),
+    'responses', COALESCE(
+      (SELECT jsonb_agg(jsonb_build_object(
+          'checklist_item_id', r.checklist_item_id,
+          'response', r.response,
+          'finding', r.finding,
+          'responded_at', r.responded_at
+        ) ORDER BY r.checklist_item_id)
+       FROM public.inspection_responses r
+       WHERE r.inspection_id = i.id),
+      '[]'::jsonb
+    ),
+    'evidence', COALESCE(
+      (SELECT jsonb_agg(jsonb_build_object(
+          'evidence_type', e.evidence_type,
+          'file_name', e.file_name,
+          'file_type', e.file_type,
+          'file_size', e.file_size,
+          'observation', e.observation,
+          'location_text', e.location_text,
+          'latitude', e.latitude,
+          'longitude', e.longitude,
+          'captured_at', e.captured_at,
+          'created_at', e.created_at
+        ) ORDER BY e.created_at DESC)
+       FROM public.evidence e
+       WHERE e.inspection_id = i.id),
+      '[]'::jsonb
+    ),
+    'history', CASE WHEN h.id IS NOT NULL THEN jsonb_build_object(
+      'action', h.action,
+      'status', h.status,
+      'snapshot', h.snapshot,
+      'completed_at', h.completed_at
+    ) ELSE NULL END
+  ) INTO v_result
+  FROM public.inspections i
+  LEFT JOIN public.inspection_history h ON h.inspection_id = i.id
+  WHERE i.id = p_inspection_id;
+
+  RETURN v_result;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_inspection_detail TO authenticated;
+
+-- =========================================================
+-- 8. HELPER: Get inspector dashboard data (single call)
+--    Aggregates inspections, responses, evidence & history
+--    for the authenticated inspector's assigned inspections.
+--    Returns: { profile, inspections[], departments[] }
+--    Each inspection includes nested establishment, department,
+--    template, checklist, findings, evidence_summary, and history.
+-- =========================================================
+CREATE OR REPLACE FUNCTION public.get_inspector_dashboard(p_inspector_id UUID DEFAULT auth.uid())
+RETURNS JSONB
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_profile JSONB;
+  v_inspections JSONB;
+  v_departments JSONB;
+  v_result JSONB;
+BEGIN
+  -- 1. Profile
+  SELECT jsonb_build_object(
+    'name', p.name,
+    'department', CASE WHEN d.id IS NOT NULL THEN jsonb_build_object('name', d.name) ELSE NULL END
+  ) INTO v_profile
+  FROM public.profiles p
+  LEFT JOIN public.departments d ON d.id = p.department_id
+  WHERE p.id = p_inspector_id;
+
+  -- 2. Departments list
+  SELECT jsonb_agg(jsonb_build_object('id', d.id, 'name', d.name) ORDER BY d.name)
+  INTO v_departments
+  FROM public.departments d;
+
+  -- 3. Inspections with aggregated detail from all sub-tables
+  SELECT jsonb_agg(
+    jsonb_build_object(
+      'id', i.id,
+      'establishment_id', i.establishment_id,
+      'department_id', i.department_id,
+      'inspector_id', i.inspector_id,
+      'supervisor_id', i.supervisor_id,
+      'template_id', i.template_id,
+      'scheduled_date', i.scheduled_date,
+      'actual_date', i.actual_date,
+      'status', i.status,
+      'notes', i.notes,
+      'created_at', i.created_at,
+      'establishment', jsonb_build_object(
+        'id', est.id,
+        'name', est.name,
+        'address', est.address,
+        'registration_number', est.registration_number,
+        'category', est.category
+      ),
+      'department', jsonb_build_object(
+        'id', dep.id,
+        'name', dep.name,
+        'code', dep.code
+      ),
+      'template', CASE WHEN t.id IS NOT NULL THEN jsonb_build_object(
+        'id', t.id,
+        'template_name', t.template_name,
+        'checklist_json', t.checklist_json
+      ) ELSE NULL END,
+      -- Aggregated from inspection_responses table
+      'checklist', COALESCE(
+        (SELECT jsonb_object_agg(rsp.checklist_item_id, rsp.response)
+         FROM public.inspection_responses rsp
+         WHERE rsp.inspection_id = i.id),
+        '{}'::jsonb
+      ),
+      'findings', COALESCE(
+        (SELECT jsonb_object_agg(rsp.checklist_item_id, rsp.finding)
+         FROM public.inspection_responses rsp
+         WHERE rsp.inspection_id = i.id AND rsp.finding IS NOT NULL),
+        '{}'::jsonb
+      ),
+      -- Aggregated from evidence table
+      'evidence_summary', jsonb_build_object(
+        'files', COALESCE(
+          (SELECT jsonb_agg(jsonb_build_object(
+              'name', ev.file_name,
+              'type', ev.file_type,
+              'size', ev.file_size
+            ))
+           FROM public.evidence ev
+           WHERE ev.inspection_id = i.id AND ev.evidence_type IN ('image', 'document')),
+          '[]'::jsonb
+        ),
+        'location_text', COALESCE(
+          (SELECT ev_obs.location_text FROM public.evidence ev_obs
+           WHERE ev_obs.inspection_id = i.id AND ev_obs.evidence_type = 'observation' LIMIT 1),
+          ''
+        ),
+        'location', COALESCE(
+          (SELECT jsonb_build_object(
+              'latitude', ev_obs.latitude,
+              'longitude', ev_obs.longitude,
+              'captured_at', ev_obs.captured_at
+            ) FROM public.evidence ev_obs
+           WHERE ev_obs.inspection_id = i.id AND ev_obs.evidence_type = 'observation'
+             AND ev_obs.latitude IS NOT NULL AND ev_obs.longitude IS NOT NULL
+           LIMIT 1),
+          NULL
+        )
+      ),
+      -- Aggregated from inspection_history table
+      'history', CASE WHEN ih.id IS NOT NULL THEN jsonb_build_object(
+        'action', ih.action,
+        'status', ih.status,
+        'completed_at', ih.completed_at
+      ) ELSE NULL END
+    ) ORDER BY i.scheduled_date ASC
+  ) INTO v_inspections
+  FROM public.inspections i
+  JOIN public.establishments est ON est.id = i.establishment_id
+  JOIN public.departments dep ON dep.id = i.department_id
+  LEFT JOIN public.checklist_templates t ON t.id = i.template_id
+  LEFT JOIN public.inspection_history ih ON ih.inspection_id = i.id
+  WHERE i.inspector_id = p_inspector_id;
+
+  -- Ensure empty array instead of null
+  IF v_inspections IS NULL THEN
+    v_inspections := '[]'::jsonb;
+  END IF;
+
+  -- Build final result matching the inspector dashboard shape
+  v_result := jsonb_build_object(
+    'profile', v_profile,
+    'inspections', v_inspections,
+    'departments', COALESCE(v_departments, '[]'::jsonb)
+  );
+
+  RETURN v_result;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_inspector_dashboard TO authenticated;
