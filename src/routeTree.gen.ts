@@ -12,8 +12,16 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedSupervisorRouteImport } from './routes/_authenticated/supervisor'
+import { Route as AuthenticatedInspectorRouteImport } from './routes/_authenticated/inspector'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedSupervisorIndexRouteImport } from './routes/_authenticated/supervisor.index'
+import { Route as AuthenticatedInspectorIndexRouteImport } from './routes/_authenticated/inspector.index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
+import { Route as AuthenticatedSupervisorRiskRouteImport } from './routes/_authenticated/supervisor.risk'
+import { Route as AuthenticatedSupervisorReviewsRouteImport } from './routes/_authenticated/supervisor.reviews'
+import { Route as AuthenticatedSupervisorReportsRouteImport } from './routes/_authenticated/supervisor.reports'
+import { Route as AuthenticatedSupervisorAnalyticsRouteImport } from './routes/_authenticated/supervisor.analytics'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
 import { Route as AuthenticatedAdminTemplatesRouteImport } from './routes/_authenticated/admin.templates'
 import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin.settings'
@@ -21,6 +29,7 @@ import { Route as AuthenticatedAdminEstablishmentsRouteImport } from './routes/_
 import { Route as AuthenticatedAdminDepartmentsRouteImport } from './routes/_authenticated/admin.departments'
 import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated/admin.audit'
 import { Route as AuthenticatedAdminAssignmentsRouteImport } from './routes/_authenticated/admin.assignments'
+import { Route as AuthenticatedSupervisorInspectionIdRouteImport } from './routes/_authenticated/supervisor.inspection.$id'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -36,16 +45,62 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedSupervisorRoute = AuthenticatedSupervisorRouteImport.update({
+  id: '/supervisor',
+  path: '/supervisor',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedInspectorRoute = AuthenticatedInspectorRouteImport.update({
+  id: '/inspector',
+  path: '/inspector',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSupervisorIndexRoute =
+  AuthenticatedSupervisorIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedSupervisorRoute,
+  } as any)
+const AuthenticatedInspectorIndexRoute =
+  AuthenticatedInspectorIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedInspectorRoute,
+  } as any)
 const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
+const AuthenticatedSupervisorRiskRoute =
+  AuthenticatedSupervisorRiskRouteImport.update({
+    id: '/risk',
+    path: '/risk',
+    getParentRoute: () => AuthenticatedSupervisorRoute,
+  } as any)
+const AuthenticatedSupervisorReviewsRoute =
+  AuthenticatedSupervisorReviewsRouteImport.update({
+    id: '/reviews',
+    path: '/reviews',
+    getParentRoute: () => AuthenticatedSupervisorRoute,
+  } as any)
+const AuthenticatedSupervisorReportsRoute =
+  AuthenticatedSupervisorReportsRouteImport.update({
+    id: '/reports',
+    path: '/reports',
+    getParentRoute: () => AuthenticatedSupervisorRoute,
+  } as any)
+const AuthenticatedSupervisorAnalyticsRoute =
+  AuthenticatedSupervisorAnalyticsRouteImport.update({
+    id: '/analytics',
+    path: '/analytics',
+    getParentRoute: () => AuthenticatedSupervisorRoute,
+  } as any)
 const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
@@ -86,11 +141,19 @@ const AuthenticatedAdminAssignmentsRoute =
     path: '/assignments',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedSupervisorInspectionIdRoute =
+  AuthenticatedSupervisorInspectionIdRouteImport.update({
+    id: '/inspection/$id',
+    path: '/inspection/$id',
+    getParentRoute: () => AuthenticatedSupervisorRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
+  '/inspector': typeof AuthenticatedInspectorRouteWithChildren
+  '/supervisor': typeof AuthenticatedSupervisorRouteWithChildren
   '/admin/assignments': typeof AuthenticatedAdminAssignmentsRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/departments': typeof AuthenticatedAdminDepartmentsRoute
@@ -98,7 +161,14 @@ export interface FileRoutesByFullPath {
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/admin/templates': typeof AuthenticatedAdminTemplatesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/supervisor/analytics': typeof AuthenticatedSupervisorAnalyticsRoute
+  '/supervisor/reports': typeof AuthenticatedSupervisorReportsRoute
+  '/supervisor/reviews': typeof AuthenticatedSupervisorReviewsRoute
+  '/supervisor/risk': typeof AuthenticatedSupervisorRiskRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/inspector/': typeof AuthenticatedInspectorIndexRoute
+  '/supervisor/': typeof AuthenticatedSupervisorIndexRoute
+  '/supervisor/inspection/$id': typeof AuthenticatedSupervisorInspectionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -110,7 +180,14 @@ export interface FileRoutesByTo {
   '/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/admin/templates': typeof AuthenticatedAdminTemplatesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/supervisor/analytics': typeof AuthenticatedSupervisorAnalyticsRoute
+  '/supervisor/reports': typeof AuthenticatedSupervisorReportsRoute
+  '/supervisor/reviews': typeof AuthenticatedSupervisorReviewsRoute
+  '/supervisor/risk': typeof AuthenticatedSupervisorRiskRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
+  '/inspector': typeof AuthenticatedInspectorIndexRoute
+  '/supervisor': typeof AuthenticatedSupervisorIndexRoute
+  '/supervisor/inspection/$id': typeof AuthenticatedSupervisorInspectionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -118,6 +195,8 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
+  '/_authenticated/inspector': typeof AuthenticatedInspectorRouteWithChildren
+  '/_authenticated/supervisor': typeof AuthenticatedSupervisorRouteWithChildren
   '/_authenticated/admin/assignments': typeof AuthenticatedAdminAssignmentsRoute
   '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/_authenticated/admin/departments': typeof AuthenticatedAdminDepartmentsRoute
@@ -125,7 +204,14 @@ export interface FileRoutesById {
   '/_authenticated/admin/settings': typeof AuthenticatedAdminSettingsRoute
   '/_authenticated/admin/templates': typeof AuthenticatedAdminTemplatesRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/_authenticated/supervisor/analytics': typeof AuthenticatedSupervisorAnalyticsRoute
+  '/_authenticated/supervisor/reports': typeof AuthenticatedSupervisorReportsRoute
+  '/_authenticated/supervisor/reviews': typeof AuthenticatedSupervisorReviewsRoute
+  '/_authenticated/supervisor/risk': typeof AuthenticatedSupervisorRiskRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/inspector/': typeof AuthenticatedInspectorIndexRoute
+  '/_authenticated/supervisor/': typeof AuthenticatedSupervisorIndexRoute
+  '/_authenticated/supervisor/inspection/$id': typeof AuthenticatedSupervisorInspectionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -133,6 +219,8 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/admin'
+    | '/inspector'
+    | '/supervisor'
     | '/admin/assignments'
     | '/admin/audit'
     | '/admin/departments'
@@ -140,7 +228,14 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/templates'
     | '/admin/users'
+    | '/supervisor/analytics'
+    | '/supervisor/reports'
+    | '/supervisor/reviews'
+    | '/supervisor/risk'
     | '/admin/'
+    | '/inspector/'
+    | '/supervisor/'
+    | '/supervisor/inspection/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -152,13 +247,22 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/templates'
     | '/admin/users'
+    | '/supervisor/analytics'
+    | '/supervisor/reports'
+    | '/supervisor/reviews'
+    | '/supervisor/risk'
     | '/admin'
+    | '/inspector'
+    | '/supervisor'
+    | '/supervisor/inspection/$id'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/admin'
+    | '/_authenticated/inspector'
+    | '/_authenticated/supervisor'
     | '/_authenticated/admin/assignments'
     | '/_authenticated/admin/audit'
     | '/_authenticated/admin/departments'
@@ -166,7 +270,14 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/settings'
     | '/_authenticated/admin/templates'
     | '/_authenticated/admin/users'
+    | '/_authenticated/supervisor/analytics'
+    | '/_authenticated/supervisor/reports'
+    | '/_authenticated/supervisor/reviews'
+    | '/_authenticated/supervisor/risk'
     | '/_authenticated/admin/'
+    | '/_authenticated/inspector/'
+    | '/_authenticated/supervisor/'
+    | '/_authenticated/supervisor/inspection/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -198,6 +309,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/supervisor': {
+      id: '/_authenticated/supervisor'
+      path: '/supervisor'
+      fullPath: '/supervisor'
+      preLoaderRoute: typeof AuthenticatedSupervisorRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/inspector': {
+      id: '/_authenticated/inspector'
+      path: '/inspector'
+      fullPath: '/inspector'
+      preLoaderRoute: typeof AuthenticatedInspectorRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/admin': {
       id: '/_authenticated/admin'
       path: '/admin'
@@ -205,12 +330,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/supervisor/': {
+      id: '/_authenticated/supervisor/'
+      path: '/'
+      fullPath: '/supervisor/'
+      preLoaderRoute: typeof AuthenticatedSupervisorIndexRouteImport
+      parentRoute: typeof AuthenticatedSupervisorRoute
+    }
+    '/_authenticated/inspector/': {
+      id: '/_authenticated/inspector/'
+      path: '/'
+      fullPath: '/inspector/'
+      preLoaderRoute: typeof AuthenticatedInspectorIndexRouteImport
+      parentRoute: typeof AuthenticatedInspectorRoute
+    }
     '/_authenticated/admin/': {
       id: '/_authenticated/admin/'
       path: '/'
       fullPath: '/admin/'
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/supervisor/risk': {
+      id: '/_authenticated/supervisor/risk'
+      path: '/risk'
+      fullPath: '/supervisor/risk'
+      preLoaderRoute: typeof AuthenticatedSupervisorRiskRouteImport
+      parentRoute: typeof AuthenticatedSupervisorRoute
+    }
+    '/_authenticated/supervisor/reviews': {
+      id: '/_authenticated/supervisor/reviews'
+      path: '/reviews'
+      fullPath: '/supervisor/reviews'
+      preLoaderRoute: typeof AuthenticatedSupervisorReviewsRouteImport
+      parentRoute: typeof AuthenticatedSupervisorRoute
+    }
+    '/_authenticated/supervisor/reports': {
+      id: '/_authenticated/supervisor/reports'
+      path: '/reports'
+      fullPath: '/supervisor/reports'
+      preLoaderRoute: typeof AuthenticatedSupervisorReportsRouteImport
+      parentRoute: typeof AuthenticatedSupervisorRoute
+    }
+    '/_authenticated/supervisor/analytics': {
+      id: '/_authenticated/supervisor/analytics'
+      path: '/analytics'
+      fullPath: '/supervisor/analytics'
+      preLoaderRoute: typeof AuthenticatedSupervisorAnalyticsRouteImport
+      parentRoute: typeof AuthenticatedSupervisorRoute
     }
     '/_authenticated/admin/users': {
       id: '/_authenticated/admin/users'
@@ -261,6 +428,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminAssignmentsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/supervisor/inspection/$id': {
+      id: '/_authenticated/supervisor/inspection/$id'
+      path: '/inspection/$id'
+      fullPath: '/supervisor/inspection/$id'
+      preLoaderRoute: typeof AuthenticatedSupervisorInspectionIdRouteImport
+      parentRoute: typeof AuthenticatedSupervisorRoute
+    }
   }
 }
 
@@ -289,12 +463,56 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
 const AuthenticatedAdminRouteWithChildren =
   AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
 
+interface AuthenticatedInspectorRouteChildren {
+  AuthenticatedInspectorIndexRoute: typeof AuthenticatedInspectorIndexRoute
+}
+
+const AuthenticatedInspectorRouteChildren: AuthenticatedInspectorRouteChildren =
+  {
+    AuthenticatedInspectorIndexRoute: AuthenticatedInspectorIndexRoute,
+  }
+
+const AuthenticatedInspectorRouteWithChildren =
+  AuthenticatedInspectorRoute._addFileChildren(
+    AuthenticatedInspectorRouteChildren,
+  )
+
+interface AuthenticatedSupervisorRouteChildren {
+  AuthenticatedSupervisorAnalyticsRoute: typeof AuthenticatedSupervisorAnalyticsRoute
+  AuthenticatedSupervisorReportsRoute: typeof AuthenticatedSupervisorReportsRoute
+  AuthenticatedSupervisorReviewsRoute: typeof AuthenticatedSupervisorReviewsRoute
+  AuthenticatedSupervisorRiskRoute: typeof AuthenticatedSupervisorRiskRoute
+  AuthenticatedSupervisorIndexRoute: typeof AuthenticatedSupervisorIndexRoute
+  AuthenticatedSupervisorInspectionIdRoute: typeof AuthenticatedSupervisorInspectionIdRoute
+}
+
+const AuthenticatedSupervisorRouteChildren: AuthenticatedSupervisorRouteChildren =
+  {
+    AuthenticatedSupervisorAnalyticsRoute:
+      AuthenticatedSupervisorAnalyticsRoute,
+    AuthenticatedSupervisorReportsRoute: AuthenticatedSupervisorReportsRoute,
+    AuthenticatedSupervisorReviewsRoute: AuthenticatedSupervisorReviewsRoute,
+    AuthenticatedSupervisorRiskRoute: AuthenticatedSupervisorRiskRoute,
+    AuthenticatedSupervisorIndexRoute: AuthenticatedSupervisorIndexRoute,
+    AuthenticatedSupervisorInspectionIdRoute:
+      AuthenticatedSupervisorInspectionIdRoute,
+  }
+
+const AuthenticatedSupervisorRouteWithChildren =
+  AuthenticatedSupervisorRoute._addFileChildren(
+    AuthenticatedSupervisorRouteChildren,
+  )
+
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
+  AuthenticatedInspectorRoute: typeof AuthenticatedInspectorRouteWithChildren
+  AuthenticatedSupervisorRoute: typeof AuthenticatedSupervisorRouteWithChildren
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
+  AuthenticatedInspectorRoute: AuthenticatedInspectorRouteWithChildren,
+  AuthenticatedSupervisorRoute: AuthenticatedSupervisorRouteWithChildren,
 }
 
 const AuthenticatedRouteRouteWithChildren =

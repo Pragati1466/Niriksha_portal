@@ -8,6 +8,10 @@ export const attachSupabaseAuth = createMiddleware({ type: 'function' }).client(
   async ({ next }) => {
     const { data } = await supabase.auth.getSession()
     const token = data.session?.access_token
+    console.log("[attachSupabaseAuth] session present:", !!data.session, "| token present:", !!token);
+    if (!token) {
+      console.warn("[attachSupabaseAuth] ✘ No access_token in session — server will get no Authorization header and requireSupabaseAuth will throw 'No authorization header provided'");
+    }
     return next({
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })

@@ -6,12 +6,21 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 // ---------- helpers ----------
 
 async function requireAdmin(ctx: { supabase: any; userId: string }) {
+  console.log("[requireAdmin] ✦ called — userId:", ctx.userId);
   const { data, error } = await ctx.supabase.rpc("has_role", {
     _user_id: ctx.userId,
     _role: "admin",
   });
-  if (error) throw new Error(error.message);
-  if (!data) throw new Error("Forbidden: admin role required");
+  console.log("[requireAdmin] has_role RPC result — data:", data, "| error:", error ?? null);
+  if (error) {
+    console.error("[requireAdmin] ✘ RPC error:", error.message, "| code:", error.code);
+    throw new Error(error.message);
+  }
+  if (!data) {
+    console.error("[requireAdmin] ✘ has_role returned false — user", ctx.userId, "is NOT in user_roles as admin");
+    throw new Error("Forbidden: admin role required");
+  }
+  console.log("[requireAdmin] ✔ has_role confirmed admin for userId:", ctx.userId);
 }
 
 function publicClient() {
@@ -77,8 +86,15 @@ export const bootstrapFirstAdmin = createServerFn({ method: "POST" })
 export const requireAdminRole = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await requireAdmin(context as any);
-    return { ok: true };
+    console.log("[requireAdminRole] ✦ handler reached — userId from context:", (context as any).userId);
+    try {
+      await requireAdmin(context as any);
+      console.log("[requireAdminRole] ✔ admin check passed");
+      return { ok: true };
+    } catch (err: any) {
+      console.error("[requireAdminRole] ✘ admin check failed:", err?.message);
+      throw err;
+    }
   });
 
 // ---------- dashboard ----------
