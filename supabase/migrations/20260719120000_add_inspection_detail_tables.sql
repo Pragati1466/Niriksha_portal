@@ -1,5 +1,12 @@
+<<<<<<< HEAD
 -- Normalized inspector workflow records. The inspections table remains the
 -- assignment header; responses, evidence, and history are stored separately.
+=======
+-- =========================================================
+-- Normalized inspector workflow records. The inspections table remains the
+-- assignment header; responses, evidence, and history are stored separately.
+-- =========================================================
+>>>>>>> 66a17c8bbfa6703aabce39c7895e7bff63b2452d
 
 -- =========================================================
 -- 1. INSPECTION RESPONSES
@@ -69,12 +76,17 @@ CREATE INDEX IF NOT EXISTS inspection_history_status_idx ON public.inspection_hi
 -- =========================================================
 -- 5. GRANTS
 -- =========================================================
+<<<<<<< HEAD
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.inspection_responses TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.evidence TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.inspection_history TO authenticated;
 GRANT ALL ON public.inspection_responses TO service_role;
 GRANT ALL ON public.evidence TO service_role;
 GRANT ALL ON public.inspection_history TO service_role;
+=======
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.inspection_responses, public.evidence, public.inspection_history TO authenticated;
+GRANT ALL ON public.inspection_responses, public.evidence, public.inspection_history TO service_role;
+>>>>>>> 66a17c8bbfa6703aabce39c7895e7bff63b2452d
 
 -- =========================================================
 -- 6. ROW LEVEL SECURITY
@@ -84,23 +96,43 @@ ALTER TABLE public.evidence ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inspection_history ENABLE ROW LEVEL SECURITY;
 
 -- Inspection responses: inspector, supervisor, or admin can access
+<<<<<<< HEAD
+=======
+DROP POLICY IF EXISTS "inspection_responses_owner_access" ON public.inspection_responses;
+>>>>>>> 66a17c8bbfa6703aabce39c7895e7bff63b2452d
 CREATE POLICY "inspection_responses_owner_access" ON public.inspection_responses FOR ALL TO authenticated
   USING (EXISTS (SELECT 1 FROM public.inspections i WHERE i.id = inspection_id AND (i.inspector_id = auth.uid() OR i.supervisor_id = auth.uid() OR public.has_role(auth.uid(), 'admin'))))
   WITH CHECK (EXISTS (SELECT 1 FROM public.inspections i WHERE i.id = inspection_id AND (i.inspector_id = auth.uid() OR i.supervisor_id = auth.uid() OR public.has_role(auth.uid(), 'admin'))));
 
 -- Evidence: inspector, supervisor, or admin can access
+<<<<<<< HEAD
+=======
+DROP POLICY IF EXISTS "evidence_owner_access" ON public.evidence;
+>>>>>>> 66a17c8bbfa6703aabce39c7895e7bff63b2452d
 CREATE POLICY "evidence_owner_access" ON public.evidence FOR ALL TO authenticated
   USING (EXISTS (SELECT 1 FROM public.inspections i WHERE i.id = inspection_id AND (i.inspector_id = auth.uid() OR i.supervisor_id = auth.uid() OR public.has_role(auth.uid(), 'admin'))))
   WITH CHECK (EXISTS (SELECT 1 FROM public.inspections i WHERE i.id = inspection_id AND (i.inspector_id = auth.uid() OR i.supervisor_id = auth.uid() OR public.has_role(auth.uid(), 'admin'))));
 
 -- Inspection history: inspector (self), supervisor (own inspections), or admin can read
+<<<<<<< HEAD
+=======
+DROP POLICY IF EXISTS "inspection_history_owner_read" ON public.inspection_history;
+>>>>>>> 66a17c8bbfa6703aabce39c7895e7bff63b2452d
 CREATE POLICY "inspection_history_owner_read" ON public.inspection_history FOR SELECT TO authenticated
   USING (inspector_id = auth.uid() OR public.has_role(auth.uid(), 'admin') OR EXISTS (SELECT 1 FROM public.inspections i WHERE i.id = inspection_id AND i.supervisor_id = auth.uid()));
 
 -- Allow service_role to insert/update history (used by submit flow)
+<<<<<<< HEAD
 CREATE POLICY "inspection_history_service_insert" ON public.inspection_history FOR INSERT TO authenticated
   WITH CHECK (inspector_id = auth.uid() OR public.has_role(auth.uid(), 'admin'));
 
+=======
+DROP POLICY IF EXISTS "inspection_history_service_insert" ON public.inspection_history;
+CREATE POLICY "inspection_history_service_insert" ON public.inspection_history FOR INSERT TO authenticated
+  WITH CHECK (inspector_id = auth.uid() OR public.has_role(auth.uid(), 'admin'));
+
+DROP POLICY IF EXISTS "inspection_history_service_update" ON public.inspection_history;
+>>>>>>> 66a17c8bbfa6703aabce39c7895e7bff63b2452d
 CREATE POLICY "inspection_history_service_update" ON public.inspection_history FOR UPDATE TO authenticated
   USING (inspector_id = auth.uid() OR public.has_role(auth.uid(), 'admin'))
   WITH CHECK (inspector_id = auth.uid() OR public.has_role(auth.uid(), 'admin'));
@@ -315,4 +347,145 @@ BEGIN
 END;
 $$;
 
+<<<<<<< HEAD
 GRANT EXECUTE ON FUNCTION public.get_inspector_dashboard TO authenticated;
+=======
+GRANT EXECUTE ON FUNCTION public.get_inspector_dashboard TO authenticated;
+
+-- =========================================================
+-- 9. SEED DATA: Populate inspection_responses, evidence, and
+--    inspection_history from existing inspections data.
+--    This runs only if the tables are empty (idempotent).
+-- =========================================================
+DO $$
+DECLARE
+  v_inspection RECORD;
+  v_checklist_items TEXT[];
+  v_item TEXT;
+  v_response TEXT;
+  v_finding TEXT;
+  v_evidence_id UUID;
+  v_inspector_id UUID;
+BEGIN
+  -- Only seed if inspection_responses is empty
+  IF EXISTS (SELECT 1 FROM public.inspection_responses LIMIT 1) THEN
+    RAISE NOTICE 'inspection_responses already has data, skipping seed.';
+    RETURN;
+  END IF;
+
+  RAISE NOTICE 'Seeding inspection_responses, evidence, and inspection_history from existing inspections...';
+
+  FOR v_inspection IN
+    SELECT i.id, i.inspector_id, i.checklist, i.findings, i.evidence_summary, i.status, i.notes, i.actual_date
+    FROM public.inspections i
+    WHERE i.checklist IS NOT NULL AND i.checklist != '{}'::jsonb
+  LOOP
+    v_inspector_id := v_inspection.inspector_id;
+
+    -- Seed inspection_responses from the checklist JSONB
+    -- The checklist is stored as { "item_id": "Safe"|"Complaint", ... }
+    FOR v_item IN SELECT jsonb_object_keys(v_inspection.checklist)
+    LOOP
+      v_response := v_inspection.checklist->>v_item;
+      v_finding := NULL;
+
+      -- If there's a corresponding finding, grab it
+      IF v_inspection.findings IS NOT NULL AND v_inspection.findings ? v_item THEN
+        v_finding := v_inspection.findings->>v_item;
+      END IF;
+
+      -- Default finding text for complaints if none stored
+      IF v_response = 'Complaint' AND v_finding IS NULL THEN
+        v_finding := 'Issue observed during inspection — see evidence for details.';
+      END IF;
+
+      INSERT INTO public.inspection_responses (
+        inspection_id, checklist_item_id, response, finding, responded_by, responded_at
+      ) VALUES (
+        v_inspection.id, v_item, v_response, v_finding, v_inspector_id, COALESCE(v_inspection.actual_date, now())::timestamptz
+      ) ON CONFLICT (inspection_id, checklist_item_id) DO NOTHING;
+    END LOOP;
+
+    -- Seed evidence from evidence_summary JSONB
+    -- evidence_summary.files[] -> image/document records
+    IF v_inspection.evidence_summary IS NOT NULL AND v_inspection.evidence_summary ? 'files' THEN
+      FOR v_item IN SELECT jsonb_array_elements_text(v_inspection.evidence_summary->'files')
+      LOOP
+        -- v_item is a JSON string, parse it
+        DECLARE
+          v_file JSONB := v_item::jsonb;
+          v_file_name TEXT := v_file->>'name';
+          v_file_type TEXT := v_file->>'type';
+          v_file_size BIGINT := (v_file->>'size')::BIGINT;
+          v_ev_type TEXT;
+        BEGIN
+          IF v_file_type LIKE 'image/%' THEN
+            v_ev_type := 'image';
+          ELSE
+            v_ev_type := 'document';
+          END IF;
+
+          INSERT INTO public.evidence (
+            inspection_id, evidence_type, file_name, file_type, file_size, uploaded_by, created_at
+          ) VALUES (
+            v_inspection.id, v_ev_type, v_file_name, v_file_type, v_file_size, v_inspector_id, COALESCE(v_inspection.actual_date, now())::timestamptz
+          );
+        END;
+      END LOOP;
+    END IF;
+
+    -- Seed observation evidence from evidence_summary.location_text and notes
+    IF v_inspection.evidence_summary IS NOT NULL AND (
+      (v_inspection.evidence_summary ? 'location_text' AND v_inspection.evidence_summary->>'location_text' != '')
+      OR (v_inspection.evidence_summary ? 'location' AND v_inspection.evidence_summary->'location' != 'null'::jsonb)
+      OR (v_inspection.notes IS NOT NULL AND v_inspection.notes != '')
+    ) THEN
+      INSERT INTO public.evidence (
+        inspection_id, evidence_type, observation, location_text,
+        latitude, longitude, captured_at, uploaded_by, created_at
+      ) VALUES (
+        v_inspection.id, 'observation',
+        v_inspection.notes,
+        v_inspection.evidence_summary->>'location_text',
+        CASE WHEN v_inspection.evidence_summary #>> '{location,latitude}' IS NOT NULL
+             THEN (v_inspection.evidence_summary #>> '{location,latitude}')::DOUBLE PRECISION
+             ELSE NULL END,
+        CASE WHEN v_inspection.evidence_summary #>> '{location,longitude}' IS NOT NULL
+             THEN (v_inspection.evidence_summary #>> '{location,longitude}')::DOUBLE PRECISION
+             ELSE NULL END,
+        CASE WHEN v_inspection.evidence_summary #>> '{location,captured_at}' IS NOT NULL
+             THEN (v_inspection.evidence_summary #>> '{location,captured_at}')::timestamptz
+             ELSE NULL END,
+        v_inspector_id,
+        COALESCE(v_inspection.actual_date, now())::timestamptz
+      );
+    END IF;
+
+    -- Seed inspection_history for completed inspections
+    IF v_inspection.status = 'completed' THEN
+      INSERT INTO public.inspection_history (
+        inspection_id, inspector_id, action, status, snapshot, completed_at
+      ) VALUES (
+        v_inspection.id, v_inspector_id, 'submitted', 'completed',
+        jsonb_build_object(
+          'responses', (SELECT COALESCE(jsonb_agg(jsonb_build_object(
+            'checklist_item_id', r.checklist_item_id,
+            'response', r.response,
+            'finding', r.finding
+          )), '[]'::jsonb) FROM public.inspection_responses r WHERE r.inspection_id = v_inspection.id),
+          'evidence_files', (SELECT COALESCE(jsonb_agg(jsonb_build_object(
+            'name', e.file_name,
+            'type', e.file_type,
+            'size', e.file_size
+          )), '[]'::jsonb) FROM public.evidence e WHERE e.inspection_id = v_inspection.id AND e.evidence_type IN ('image', 'document')),
+          'inspector_notes', v_inspection.notes,
+          'submitted_at', COALESCE(v_inspection.actual_date, now())
+        ),
+        COALESCE(v_inspection.actual_date, now())::timestamptz
+      ) ON CONFLICT (inspection_id) DO NOTHING;
+    END IF;
+  END LOOP;
+
+  RAISE NOTICE 'Seed complete: inspection_responses, evidence, and inspection_history populated.';
+END $$;
+>>>>>>> 66a17c8bbfa6703aabce39c7895e7bff63b2452d

@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { z } from "zod";
 import { format, parseISO } from "date-fns";
-import { Building2, CalendarDays, CheckCircle2, ChevronRight, ClipboardCheck, Clock3, FileText, MapPin, Play, Plus, Send, Upload, X, AlertTriangle, CheckCircle, Image, Camera, ShieldAlert, Hash, FileWarning } from "lucide-react";
+import { Building2, CheckCircle2, ChevronRight, ClipboardCheck, Clock3, FileText, MapPin, Play, Plus, Send, Upload, X, AlertTriangle, CheckCircle, Image, Camera, ShieldAlert, FileWarning } from "lucide-react";
 import { createInspectorCase, getInspectorDashboard, saveInspectionDraft, seedInspectorDemoCases, submitInspection } from "@/lib/inspector.functions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,7 @@ const EVIDENCE_CATEGORIES = [
   { value: "equipment", label: "Equipment" },
 ] as const;
 
-const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 const ALLOWED_DOC_TYPES = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
 
@@ -101,7 +101,6 @@ function NewCaseDialog({ departments, onCreated }: { departments: Array<{ id: st
       toast.error("Choose a department and enter the establishment name and inspection location.");
       return;
     }
-
     setIsCreating(true);
     try {
       await createCase({ data: { department_id: departmentId, establishment_name: establishmentName.trim(), location: caseLocation.trim() } });
@@ -165,38 +164,14 @@ function InspectionWorkspace({ inspection, onClose }: { inspection: Inspection; 
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [locationVerified, setLocationVerified] = useState<boolean | null>(null);
   const [locationVerifying, setLocationVerifying] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastSavedRef = useRef<string>("");
-  const hasChanges = useRef(false);
 
-  // Track changes for auto-save
   const getStateHash = useCallback(() => {
     return JSON.stringify({ responses, findings, notes, files, location, locationText });
   }, [responses, findings, notes, files, location, locationText]);
-
-  // Auto-save every 30 seconds when changes exist
-  useEffect(() => {
-    const checkAndSave = async () => {
-      const currentHash = getStateHash();
-      if (currentHash !== lastSavedRef.current) {
-        hasChanges.current = true;
-        lastSavedRef.current = currentHash;
-        try {
-          const payload = buildPayload();
-          await save({ data: payload });
-          console.log("[Auto-save] Draft saved at", new Date().toLocaleTimeString());
-        } catch (err: any) {
-          console.warn("[Auto-save] Failed:", err.message);
-        }
-      }
-    };
-
-    autoSaveTimer.current = setInterval(checkAndSave, 30000);
-    return () => {
-      if (autoSaveTimer.current) clearInterval(autoSaveTimer.current);
-    };
-  }, [getStateHash, save]);
 
   const buildPayload = useCallback(() => ({
     id: inspection.id,
@@ -215,17 +190,32 @@ function InspectionWorkspace({ inspection, onClose }: { inspection: Inspection; 
     },
   }), [inspection.id, responses, findings, notes, files, location, locationText]);
 
-  // Validate the entire inspection before submission
+  // Auto-save every 30 seconds
+  useEffect(() => {
+    const checkAndSave = async () => {
+      const currentHash = getStateHash();
+      if (currentHash !== lastSavedRef.current) {
+        lastSavedRef.current = currentHash;
+        try {
+          const payload = buildPayload();
+          await save({ data: payload });
+        } catch (err: any) {
+          console.warn("[Auto-save] Failed:", err.message);
+        }
+      }
+    };
+    autoSaveTimer.current = setInterval(checkAndSave, 30000);
+    return () => {
+      if (autoSaveTimer.current) clearInterval(autoSaveTimer.current);
+    };
+  }, [getStateHash, buildPayload, save]);
+
   const validateInspection = useCallback((): string[] => {
     const errors: string[] = [];
-
-    // 1. Checklist Validation - all items must be answered
     const unanswered = items.filter((item: any) => !responses[item.id]);
     if (unanswered.length > 0) {
       errors.push(`Checklist incomplete: ${unanswered.length} item(s) not answered.`);
     }
-
-    // 2. Observation Validation - findings must be meaningful
     for (const [itemId, finding] of Object.entries(findings)) {
       if (responses[itemId] === "Complaint") {
         const trimmed = (finding as string).trim();
@@ -235,15 +225,11 @@ function InspectionWorkspace({ inspection, onClose }: { inspection: Inspection; 
         }
       }
     }
-
-    // 3. Mandatory Evidence for Non-Compliance
     const complaintItems = items.filter((item: any) => responses[item.id] === "Complaint");
     const imageFiles = files.filter((f) => f.type.startsWith("image/"));
     if (complaintItems.length > 0 && imageFiles.length === 0) {
       errors.push(`${complaintItems.length} complaint(s) found. At least 1 photo is required as evidence.`);
     }
-
-    // 4. Image Validation
     for (const file of files) {
       if (file.type.startsWith("image/")) {
         if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
@@ -254,16 +240,12 @@ function InspectionWorkspace({ inspection, onClose }: { inspection: Inspection; 
         }
       }
     }
-
-    // 5. Location Validation
     if (!location) {
       errors.push("GPS location not captured. Please capture your current location before submitting.");
     }
-
     return errors;
   }, [items, responses, findings, files, location]);
 
-  // Verify GPS proximity to establishment address
   const verifyLocationProximity = useCallback(async () => {
     if (!location || !inspection.establishment?.address) {
       toast.error("GPS location or establishment address missing for proximity check.");
@@ -271,7 +253,6 @@ function InspectionWorkspace({ inspection, onClose }: { inspection: Inspection; 
     }
     setLocationVerifying(true);
     try {
-      // Use OpenStreetMap Nominatim to geocode the address
       const address = encodeURIComponent(inspection.establishment.address);
       const geoResponse = await fetch(
         `https://nominatim.openstreetmap.org/search?q=${address}&format=json&limit=1`,
@@ -285,16 +266,13 @@ function InspectionWorkspace({ inspection, onClose }: { inspection: Inspection; 
       }
       const estLat = parseFloat(geoData[0].lat);
       const estLon = parseFloat(geoData[0].lon);
-      // Haversine distance in meters
       const R = 6371000;
       const dLat = (estLat - location.latitude) * Math.PI / 180;
       const dLon = (estLon - location.longitude) * Math.PI / 180;
-      const a = Math.sin(dLat / 2) ** 2 +
-        Math.cos(location.latitude * Math.PI / 180) * Math.cos(estLat * Math.PI / 180) *
-        Math.sin(dLon / 2) ** 2;
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(location.latitude * Math.PI / 180) * Math.cos(estLat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       const distance = R * c;
-      const withinRange = distance < 200; // within 200 meters
+      const withinRange = distance < 200;
       setLocationVerified(withinRange);
       if (withinRange) {
         toast.success(`Location verified: ${Math.round(distance)}m from establishment.`);
@@ -325,9 +303,14 @@ function InspectionWorkspace({ inspection, onClose }: { inspection: Inspection; 
       const payload = buildPayload();
       await (final ? submit : save)({ data: payload });
       lastSavedRef.current = getStateHash();
-      toast.success(final ? "Inspection successfully submitted for analysis." : "Draft saved successfully.");
+      if (final) {
+        setSubmitStatus("submitted");
+        toast.success("Inspection submitted successfully! Inspection stored, AI Risk Analysis initiated, Evidence Verification in progress, Report Generation queued");
+      } else {
+        toast.success("Draft saved successfully.");
+      }
       queryClient.invalidateQueries({ queryKey: ["inspector-dashboard"] });
-      if (final) onClose();
+      if (final) setTimeout(() => onClose(), 2000);
     } catch (error: any) {
       toast.error(error.message ?? "Could not save this inspection.");
     } finally {
@@ -349,38 +332,6 @@ function InspectionWorkspace({ inspection, onClose }: { inspection: Inspection; 
     );
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newFiles = Array.from(e.target.files ?? []);
-    const validated: EvidenceFile[] = [];
-    for (const file of newFiles) {
-      const isImage = file.type.startsWith("image/");
-      const isDoc = ALLOWED_DOC_TYPES.includes(file.type);
-      if (!isImage && !isDoc) {
-        toast.error(`"${file.name}" has unsupported format. Use images (JPEG, PNG, WebP) or PDF/DOC.`);
-        continue;
-      }
-      if (isImage && !ALLOWED_IMAGE_TYPES.includes(file.type)) {
-        toast.warning(`"${file.name}" format may not be supported on all devices.`);
-      }
-      if (file.size > MAX_IMAGE_SIZE) {
-        toast.error(`"${file.name}" exceeds 10MB limit.`);
-        continue;
-      }
-      validated.push({
-        name: file.name,
-        type: file.type || (isImage ? "image/jpeg" : "application/pdf"),
-        size: file.size,
-        category: "",
-      });
-    }
-    if (validated.length > 0) {
-      setFiles([...files, ...validated]);
-      toast.success(`${validated.length} file(s) added. Please assign categories.`);
-    }
-    // Reset input so same file can be re-selected
-    if (input.current) input.current.value = "";
-  };
-
   const updateFileCategory = (index: number, category: string) => {
     const updated = [...files];
     updated[index] = { ...updated[index], category };
@@ -392,6 +343,20 @@ function InspectionWorkspace({ inspection, onClose }: { inspection: Inspection; 
     updated[index] = { ...updated[index], remark };
     setFiles(updated);
   };
+
+  if (submitStatus === "submitted") {
+    return <div className="mx-auto max-w-2xl space-y-6 py-12 text-center">
+      <div className="rounded-full bg-emerald-100 p-4 mx-auto w-16 h-16 flex items-center justify-center"><CheckCircle2 className="h-8 w-8 text-emerald-600" /></div>
+      <h2 className="text-2xl font-semibold">Inspection Submitted Successfully</h2>
+      <div className="space-y-3 rounded-xl border border-border/70 bg-card p-6 text-left shadow-sm">
+        <div className="flex items-center gap-3"><CheckCircle2 className="h-5 w-5 text-emerald-500" /><span className="text-sm">✓ Inspection stored</span></div>
+        <div className="flex items-center gap-3"><div className="h-5 w-5 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" /><span className="text-sm">AI Risk Analysis initiated</span></div>
+        <div className="flex items-center gap-3"><div className="h-5 w-5 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" /><span className="text-sm">Evidence Verification in progress</span></div>
+        <div className="flex items-center gap-3"><div className="h-5 w-5 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" /><span className="text-sm">Report Generation queued</span></div>
+      </div>
+      <p className="text-sm text-muted-foreground">Your inspection has been forwarded for supervisory review.</p>
+    </div>;
+  }
 
   return <div className="mx-auto max-w-5xl space-y-5 pb-12">
     <button onClick={onClose} className="text-sm font-medium text-primary hover:underline">← Back to dashboard</button>
@@ -408,43 +373,22 @@ function InspectionWorkspace({ inspection, onClose }: { inspection: Inspection; 
       </div>
       <div className="p-5">
         {step === "checklist" && (
-          <Checklist
-            items={items}
-            responses={responses}
-            findings={findings}
-            setResponses={setResponses}
-            setFindings={setFindings}
-          />
+          <Checklist items={items} responses={responses} findings={findings} setResponses={setResponses} setFindings={setFindings} />
         )}
         {step === "evidence" && (
           <Evidence
-            files={files}
-            setFiles={setFiles}
-            input={input}
-            notes={notes}
-            setNotes={setNotes}
-            location={location}
-            locationText={locationText}
-            setLocationText={setLocationText}
+            files={files} setFiles={setFiles} input={input}
+            notes={notes} setNotes={setNotes}
+            location={location} locationText={locationText} setLocationText={setLocationText}
             captureLocation={captureLocation}
             verifyLocationProximity={verifyLocationProximity}
-            locationVerified={locationVerified}
-            locationVerifying={locationVerifying}
-            updateFileCategory={updateFileCategory}
-            updateFileRemark={updateFileRemark}
+            locationVerified={locationVerified} locationVerifying={locationVerifying}
+            updateFileCategory={updateFileCategory} updateFileRemark={updateFileRemark}
           />
         )}
         {step === "review" && (
-          <Review
-            items={items}
-            responses={responses}
-            findings={findings}
-            files={files}
-            location={location}
-            locationText={locationText}
-            notes={notes}
-            validationErrors={validationErrors}
-          />
+          <Review items={items} responses={responses} findings={findings} files={files}
+            location={location} locationText={locationText} notes={notes} validationErrors={validationErrors} />
         )}
       </div>
       <div className="flex justify-between border-t border-border/60 p-4">
@@ -457,11 +401,7 @@ function InspectionWorkspace({ inspection, onClose }: { inspection: Inspection; 
           </Button>
         ) : (
           <Button onClick={() => saveRecord(true)} disabled={isSubmitting}>
-            {isSubmitting ? (
-              <>Submitting…</>
-            ) : (
-              <><Send className="mr-2 h-4 w-4" />Submit for analysis</>
-            )}
+            <Send className="mr-2 h-4 w-4" />{isSubmitting ? "Submitting…" : "Submit for analysis"}
           </Button>
         )}
       </div>
@@ -474,14 +414,8 @@ function Checklist({ items, responses, findings, setResponses, setFindings }: an
   return <div className="space-y-4">
     <div>
       <h2 className="font-semibold">Inspection checklist</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Select Safe or Complaint for each item. A complaint requires a detailed observation.
-      </p>
-      {unanswered.length > 0 && (
-        <p className="mt-2 text-xs text-amber-600 font-medium">
-          {unanswered.length} item(s) remaining
-        </p>
-      )}
+      <p className="mt-1 text-sm text-muted-foreground">Select Safe or Complaint for each item. A complaint requires a detailed observation.</p>
+      {unanswered.length > 0 && <p className="mt-2 text-xs text-amber-600 font-medium">{unanswered.length} item(s) remaining</p>}
     </div>
     {items.map((item: any, index: number) => {
       const isUnanswered = !responses[item.id];
@@ -492,29 +426,17 @@ function Checklist({ items, responses, findings, setResponses, setFindings }: an
         </div>
         <div className="mt-3 flex gap-2">
           {["Safe", "Complaint"].map((choice) => (
-            <button
-              key={choice}
-              onClick={() => setResponses({ ...responses, [item.id]: choice })}
-              className={`rounded-md border px-3 py-1.5 text-xs font-medium ${
-                responses[item.id] === choice
-                  ? choice === "Complaint"
-                    ? "border-destructive bg-destructive/10 text-destructive"
-                    : "border-primary bg-primary text-primary-foreground"
-                  : "border-border text-muted-foreground hover:border-primary/50"
-              }`}
-            >
+            <button key={choice} onClick={() => setResponses({ ...responses, [item.id]: choice })}
+              className={`rounded-md border px-3 py-1.5 text-xs font-medium ${responses[item.id] === choice ? choice === "Complaint" ? "border-destructive bg-destructive/10 text-destructive" : "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:border-primary/50"}`}>
               {choice === "Safe" ? <><CheckCircle className="inline h-3 w-3 mr-1" />Safe</> : <><AlertTriangle className="inline h-3 w-3 mr-1" />Complaint</>}
             </button>
           ))}
         </div>
         {responses[item.id] === "Complaint" && (
           <div className="mt-3">
-            <Textarea
-              value={findings[item.id] ?? ""}
-              onChange={(e) => setFindings({ ...findings, [item.id]: e.target.value })}
+            <Textarea value={findings[item.id] ?? ""} onChange={(e) => setFindings({ ...findings, [item.id]: e.target.value })}
               className={`min-h-20 ${findings[item.id]?.trim() && findings[item.id]?.trim().length < 10 ? "border-amber-400" : ""}`}
-              placeholder="Describe the complaint or safety concern in detail (min 10 characters)…"
-            />
+              placeholder="Describe the complaint or safety concern in detail (min 10 characters)…" />
             {findings[item.id]?.trim() && findings[item.id]?.trim().length < 10 && (
               <p className="mt-1 text-xs text-amber-600">Observation too short. Please provide at least 10 characters.</p>
             )}
@@ -525,81 +447,47 @@ function Checklist({ items, responses, findings, setResponses, setFindings }: an
   </div>;
 }
 
-function Evidence({
-  files, setFiles, input, notes, setNotes, location, locationText, setLocationText,
-  captureLocation, verifyLocationProximity, locationVerified, locationVerifying,
-  updateFileCategory, updateFileRemark,
-}: any) {
+function Evidence({ files, setFiles, input, notes, setNotes, location, locationText, setLocationText, captureLocation, verifyLocationProximity, locationVerified, locationVerifying, updateFileCategory, updateFileRemark }: any) {
   return <div className="space-y-5">
     <div>
       <h2 className="font-semibold">Evidence, notes & location</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Upload evidence with categories. Images and inspector text are packaged for AI review.
-      </p>
+      <p className="mt-1 text-sm text-muted-foreground">Upload evidence with categories. Images and inspector text are packaged for AI review.</p>
     </div>
-
-    <input
-      ref={input}
-      className="hidden"
-      type="file"
-      multiple
-      accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-      onChange={(e) => {
-        const handler = input.current?.dataset.onchange;
-        if (handler === "handleFileUpload") return;
-        // The actual handler is passed via props, but we use the ref's dataset to trigger
-      }}
-    />
-
+    <input ref={input} className="hidden" type="file" multiple accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+        const newFiles = Array.from(e.target.files ?? []);
+        const validated: EvidenceFile[] = [];
+        for (const file of newFiles) {
+          const isImage = file.type.startsWith("image/");
+          const isDoc = ALLOWED_DOC_TYPES.includes(file.type);
+          if (!isImage && !isDoc) {
+            toast.error(`"${file.name}" has unsupported format. Use images (JPEG, PNG, WebP) or PDF/DOC.`);
+            continue;
+          }
+          if (isImage && !ALLOWED_IMAGE_TYPES.includes(file.type)) {
+            toast.warning(`"${file.name}" format may not be supported on all devices.`);
+          }
+          if (file.size > MAX_IMAGE_SIZE) {
+            toast.error(`"${file.name}" exceeds 10MB limit.`);
+            continue;
+          }
+          validated.push({ name: file.name, type: file.type || (isImage ? "image/jpeg" : "application/pdf"), size: file.size, category: "" });
+        }
+        if (validated.length > 0) {
+          setFiles([...files, ...validated]);
+          toast.success(`${validated.length} file(s) added. Please assign categories.`);
+        }
+        if (input.current) input.current.value = "";
+      }} />
     <div className="flex flex-wrap gap-2">
-      <Button variant="outline" onClick={() => {
-        // Create a synthetic file input click
-        const fileInput = document.createElement("input");
-        fileInput.type = "file";
-        fileInput.multiple = true;
-        fileInput.accept = "image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-        fileInput.onchange = (e: Event) => {
-          const target = e.target as HTMLInputElement;
-          const newFiles = Array.from(target.files ?? []) as File[];
-          const validated: EvidenceFile[] = [];
-          for (const f of newFiles) {
-            const isImage = f.type.startsWith("image/");
-            const isDoc = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"].includes(f.type);
-            if (!isImage && !isDoc) {
-              toast.error(`"${f.name}" has unsupported format.`);
-              continue;
-            }
-            if (f.size > 10 * 1024 * 1024) {
-              toast.error(`"${f.name}" exceeds 10MB limit.`);
-              continue;
-            }
-            validated.push({
-              name: f.name,
-              type: f.type || (isImage ? "image/jpeg" : "application/pdf"),
-              size: f.size,
-              category: "",
-            });
-          }
-          if (validated.length > 0) {
-            setFiles((prev: EvidenceFile[]) => [...prev, ...validated]);
-            toast.success(`${validated.length} file(s) added. Please assign categories.`);
-          }
-        };
-        fileInput.click();
-      }}>
-        <Upload className="mr-2 h-4 w-4" />Add image or document
-      </Button>
-      <Button variant="outline" onClick={captureLocation}>
-        <MapPin className="mr-2 h-4 w-4" />Capture GPS
-      </Button>
+      <Button variant="outline" onClick={() => input.current?.click()}><Upload className="mr-2 h-4 w-4" />Add image or document</Button>
+      <Button variant="outline" onClick={captureLocation}><MapPin className="mr-2 h-4 w-4" />Capture GPS</Button>
       {location && (
         <Button variant="outline" onClick={verifyLocationProximity} disabled={locationVerifying}>
-          <ShieldAlert className="mr-2 h-4 w-4" />
-          {locationVerifying ? "Verifying…" : "Verify proximity"}
+          <ShieldAlert className="mr-2 h-4 w-4" />{locationVerifying ? "Verifying…" : "Verify proximity"}
         </Button>
       )}
     </div>
-
     {locationVerified === true && (
       <div className="rounded-lg bg-emerald-500/10 p-3 text-sm text-emerald-800 flex items-center gap-2">
         <CheckCircle className="h-4 w-4" /> Location verified within 200m of establishment.
@@ -610,54 +498,28 @@ function Evidence({
         <AlertTriangle className="h-4 w-4" /> Location is far from establishment address. Consider recapturing.
       </div>
     )}
-
     <div>
       <label className="text-sm font-medium">Inspection location</label>
       <Input className="mt-2" value={locationText} onChange={(e) => setLocationText(e.target.value)} placeholder="Enter establishment, street, locality, city, or landmark" />
     </div>
-
-    {location && (
-      <div className="rounded-lg bg-emerald-500/10 p-3 text-sm text-emerald-800">
-        GPS captured: {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}
-      </div>
-    )}
-
-    {/* Files with categories */}
+    {location && <div className="rounded-lg bg-emerald-500/10 p-3 text-sm text-emerald-800">GPS captured: {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}</div>}
     {files.map((file: EvidenceFile, index: number) => (
       <div key={`${file.name}-${index}`} className="rounded-lg border border-border/70 p-3 space-y-2">
         <div className="flex items-center gap-3">
-          {file.type.startsWith("image/") ? (
-            <Camera className="h-4 w-4 text-primary" />
-          ) : (
-            <FileText className="h-4 w-4 text-primary" />
-          )}
+          {file.type.startsWith("image/") ? <Camera className="h-4 w-4 text-primary" /> : <FileText className="h-4 w-4 text-primary" />}
           <span className="min-w-0 flex-1 truncate text-sm">{file.name}</span>
           <Badge variant="secondary">{file.type.startsWith("image/") ? "Image" : "Document"}</Badge>
-          <button onClick={() => setFiles(files.filter((_: EvidenceFile, i: number) => i !== index))}>
-            <X className="h-4 w-4" />
-          </button>
+          <button onClick={() => setFiles(files.filter((_: EvidenceFile, i: number) => i !== index))}><X className="h-4 w-4" /></button>
         </div>
         <div className="flex flex-wrap gap-2">
-          <select
-            value={file.category}
-            onChange={(e) => updateFileCategory(index, e.target.value)}
-            className="flex h-8 rounded-md border border-input bg-background px-2 text-xs"
-          >
+          <select value={file.category} onChange={(e) => updateFileCategory(index, e.target.value)} className="flex h-8 rounded-md border border-input bg-background px-2 text-xs">
             <option value="">Select category…</option>
-            {EVIDENCE_CATEGORIES.map((cat) => (
-              <option key={cat.value} value={cat.value}>{cat.label}</option>
-            ))}
+            {EVIDENCE_CATEGORIES.map((cat) => (<option key={cat.value} value={cat.value}>{cat.label}</option>))}
           </select>
-          <Input
-            className="h-8 w-48 text-xs"
-            placeholder="Optional remark…"
-            value={file.remark ?? ""}
-            onChange={(e) => updateFileRemark(index, e.target.value)}
-          />
+          <Input className="h-8 w-48 text-xs" placeholder="Optional remark…" value={file.remark ?? ""} onChange={(e) => updateFileRemark(index, e.target.value)} />
         </div>
       </div>
     ))}
-
     <div>
       <label className="text-sm font-medium">Inspector observations for Evidence AI</label>
       <Textarea className="mt-2 min-h-32" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Describe what is visible in the images and the observed safety concern…" />
@@ -674,105 +536,58 @@ function Review({ items, responses, findings, files, location, locationText, not
   const categorizedFiles = files.filter((file: EvidenceFile) => file.category);
   const uncategorizedFiles = files.filter((file: EvidenceFile) => !file.category);
   const displayedLocation = locationText?.trim() || (location ? `GPS: ${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}` : "No inspection location captured");
-
-  // Check if each complaint has at least one image
   const missingEvidenceForComplaints = complaints.length > 0 && images.length === 0;
 
   return <div className="space-y-4">
     <h2 className="font-semibold">Review before submission</h2>
-
-    {/* Validation errors banner */}
     {validationErrors.length > 0 && (
       <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-        <h3 className="text-sm font-semibold text-destructive flex items-center gap-2">
-          <FileWarning className="h-4 w-4" /> {validationErrors.length} issue(s) must be resolved
-        </h3>
-        <ul className="mt-2 space-y-1">
-          {validationErrors.map((err: string, i: number) => (
-            <li key={i} className="text-xs text-destructive/80 flex items-start gap-2">
-              <span>•</span> {err}
-            </li>
-          ))}
-        </ul>
+        <h3 className="text-sm font-semibold text-destructive flex items-center gap-2"><FileWarning className="h-4 w-4" /> {validationErrors.length} issue(s) must be resolved</h3>
+        <ul className="mt-2 space-y-1">{validationErrors.map((err: string, i: number) => (<li key={i} className="text-xs text-destructive/80 flex items-start gap-2"><span>•</span> {err}</li>))}</ul>
       </div>
     )}
-
-    {/* Summary metrics */}
     <div className="grid grid-cols-4 gap-3">
       <Metric label="Responses" value={`${Object.keys(responses).length}/${items.length}`} />
       <Metric label="Safe" value={safeItems.length} />
       <Metric label="Complaints" value={complaints.length} />
       <Metric label="Evidence" value={files.length} />
     </div>
-
-    {/* Checklist detail */}
     <div className="rounded-lg border border-border/70 p-4">
       <h3 className="text-sm font-semibold mb-3">Checklist items</h3>
-      <div className="space-y-2">
-        {items.map((item: any, index: number) => {
-          const response = responses[item.id];
-          const isComplaint = response === "Complaint";
-          const isSafe = response === "Safe";
-          const isUnanswered = !response;
-          const finding = findings[item.id];
-          const hasValidFinding = finding?.trim() && finding.trim().length >= 10 && finding.trim() !== "...";
-
-          return (
-            <div key={item.id} className={`flex items-start gap-3 rounded-md p-2 ${
-              isUnanswered ? "bg-amber-50" : isComplaint ? "bg-red-50" : "bg-emerald-50"
-            }`}>
-              {isUnanswered ? (
-                <X className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
-              ) : isComplaint ? (
-                <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
-              ) : (
-                <CheckCircle className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
-              )}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium">{index + 1}. {item.label}</span>
-                  {isUnanswered && <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300">Unanswered</Badge>}
-                  {isComplaint && <Badge variant="outline" className="text-[10px] text-destructive border-destructive/30">Complaint</Badge>}
-                  {isSafe && <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-300">Safe</Badge>}
-                </div>
-                {isComplaint && (
-                  <div className="mt-1">
-                    {hasValidFinding ? (
-                      <p className="text-xs text-muted-foreground">{finding}</p>
-                    ) : (
-                      <p className="text-xs text-amber-600 flex items-center gap-1">
-                        <AlertTriangle className="h-3 w-3" /> Missing or insufficient observation
-                      </p>
-                    )}
-                  </div>
-                )}
+      <div className="space-y-2">{items.map((item: any, index: number) => {
+        const response = responses[item.id];
+        const isComplaint = response === "Complaint";
+        const isSafe = response === "Safe";
+        const isUnanswered = !response;
+        const finding = findings[item.id];
+        const hasValidFinding = finding?.trim() && finding.trim().length >= 10 && finding.trim() !== "...";
+        return (
+          <div key={item.id} className={`flex items-start gap-3 rounded-md p-2 ${isUnanswered ? "bg-amber-50" : isComplaint ? "bg-red-50" : "bg-emerald-50"}`}>
+            {isUnanswered ? <X className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" /> : isComplaint ? <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" /> : <CheckCircle className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium">{index + 1}. {item.label}</span>
+                {isUnanswered && <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300">Unanswered</Badge>}
+                {isComplaint && <Badge variant="outline" className="text-[10px] text-destructive border-destructive/30">Complaint</Badge>}
+                {isSafe && <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-300">Safe</Badge>}
               </div>
+              {isComplaint && <div className="mt-1">{hasValidFinding ? <p className="text-xs text-muted-foreground">{finding}</p> : <p className="text-xs text-amber-600 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Missing or insufficient observation</p>}</div>}
             </div>
-          );
-        })}
-      </div>
+          </div>
+        );
+      })}</div>
     </div>
-
-    {/* Evidence summary */}
     <div className="rounded-lg border border-border/70 p-4">
       <h3 className="text-sm font-semibold mb-3">Evidence files</h3>
-      {files.length === 0 ? (
-        <p className="text-xs text-muted-foreground">No evidence files uploaded.</p>
-      ) : (
+      {files.length === 0 ? <p className="text-xs text-muted-foreground">No evidence files uploaded.</p> : (
         <div className="space-y-2">
           <div className="flex gap-4 text-xs text-muted-foreground">
             <span>{images.length} image(s)</span>
             <span>{documents.length} document(s)</span>
             <span>{categorizedFiles.length} categorized</span>
-            {uncategorizedFiles.length > 0 && (
-              <span className="text-amber-600 font-medium">{uncategorizedFiles.length} uncategorized</span>
-            )}
+            {uncategorizedFiles.length > 0 && <span className="text-amber-600 font-medium">{uncategorizedFiles.length} uncategorized</span>}
           </div>
-          {missingEvidenceForComplaints && (
-            <p className="text-xs text-destructive flex items-center gap-1">
-              <AlertTriangle className="h-3 w-3" /> {complaints.length} complaint(s) require at least 1 photo
-            </p>
-          )}
+          {missingEvidenceForComplaints && <p className="text-xs text-destructive flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> {complaints.length} complaint(s) require at least 1 photo</p>}
           {files.map((file: EvidenceFile, index: number) => (
             <div key={index} className="flex items-center gap-2 text-xs">
               {file.type.startsWith("image/") ? <Image className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
@@ -784,21 +599,15 @@ function Review({ items, responses, findings, files, location, locationText, not
         </div>
       )}
     </div>
-
-    {/* Location */}
     <div className="rounded-lg border border-border/70 bg-muted/30 p-4 text-sm">
       <div className="font-medium">Inspection location</div>
       <p className="mt-1 text-muted-foreground">{displayedLocation}</p>
       {location && <p className="mt-1 text-xs text-muted-foreground">GPS coordinates: {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}</p>}
       {!location && <p className="mt-1 text-xs text-amber-600 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> GPS not captured</p>}
     </div>
-
-    {/* AI handoff */}
     <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm">
       <div className="font-medium text-primary">Evidence AI handoff</div>
-      <p className="mt-1 text-muted-foreground">
-        {images.length} image(s), {notes ? "inspector observations" : "no observations"}, and the saved location are ready to accompany this inspection for AI analysis.
-      </p>
+      <p className="mt-1 text-muted-foreground">{images.length} image(s), {notes ? "inspector observations" : "no observations"}, and the saved location are ready to accompany this inspection for AI analysis.</p>
     </div>
   </div>;
 }
@@ -811,70 +620,14 @@ function checklistItems(json: any, departmentName?: string) {
       label: item.label ?? item.question ?? item.title ?? `Checkpoint ${index + 1}`,
     }));
   }
-  // Department-specific fallback checklists
   const dept = departmentName?.toLowerCase() ?? "";
-  if (dept.includes("food")) {
-    return [
-      { id: "food_storage", label: "Are food items stored at correct temperatures?" },
-      { id: "food_hygiene", label: "Is the kitchen hygiene maintained?" },
-      { id: "food_license", label: "Are FSSAI license and records displayed?" },
-      { id: "food_pest", label: "Is pest control maintained?" },
-      { id: "food_waste", label: "Is waste disposal proper?" },
-    ];
-  }
-  if (dept.includes("fire")) {
-    return [
-      { id: "fire_extinguisher", label: "Are fire extinguishers accessible and serviced?" },
-      { id: "fire_exit", label: "Are fire exits clearly marked and unobstructed?" },
-      { id: "fire_alarm", label: "Is the fire alarm system functional?" },
-      { id: "fire_sprinkler", label: "Are sprinkler systems operational?" },
-      { id: "fire_drill", label: "Are fire drill records maintained?" },
-    ];
-  }
-  if (dept.includes("health")) {
-    return [
-      { id: "health_cleanliness", label: "Is the premises clean and sanitized?" },
-      { id: "health_equipment", label: "Are medical equipment properly sterilized?" },
-      { id: "health_waste", label: "Is biomedical waste segregated and disposed correctly?" },
-      { id: "health_license", label: "Are required healthcare licenses displayed?" },
-      { id: "health_staff", label: "Are staff credentials and training records available?" },
-    ];
-  }
-  if (dept.includes("school")) {
-    return [
-      { id: "school_building", label: "Is the building structure safe?" },
-      { id: "school_fire", label: "Are fire safety measures in place?" },
-      { id: "school_sanitation", label: "Are toilets and sanitation facilities adequate?" },
-      { id: "school_drinking", label: "Is safe drinking water available?" },
-      { id: "school_playground", label: "Is the playground equipment safe?" },
-    ];
-  }
-  if (dept.includes("pollution") || dept.includes("environment")) {
-    return [
-      { id: "pollution_emission", label: "Are emission control systems operational?" },
-      { id: "pollution_effluent", label: "Is effluent treatment working properly?" },
-      { id: "pollution_waste", label: "Is hazardous waste stored and disposed correctly?" },
-      { id: "pollution_noise", label: "Are noise levels within permissible limits?" },
-      { id: "pollution_license", label: "Are pollution control board consents valid?" },
-    ];
-  }
-  if (dept.includes("factory") || dept.includes("industrial")) {
-    return [
-      { id: "factory_safety", label: "Are safety guards on machinery in place?" },
-      { id: "factory_ppe", label: "Are workers using required PPE?" },
-      { id: "factory_ventilation", label: "Is ventilation adequate?" },
-      { id: "factory_electrical", label: "Are electrical installations safe?" },
-      { id: "factory_fire", label: "Are fire safety measures adequate?" },
-    ];
-  }
-  // Generic fallback
-  return [
-    { id: "premises", label: "Are the premises clean and safe?" },
-    { id: "records", label: "Are required licences and records available?" },
-    { id: "safety", label: "Are safety measures in place?" },
-    { id: "staff", label: "Are staff trained and qualified?" },
-    { id: "equipment", label: "Is equipment properly maintained?" },
-  ];
+  if (dept.includes("food")) return [{ id: "food_storage", label: "Are food items stored at correct temperatures?" }, { id: "food_hygiene", label: "Is the kitchen hygiene maintained?" }, { id: "food_license", label: "Are FSSAI license and records displayed?" }, { id: "food_pest", label: "Is pest control maintained?" }, { id: "food_waste", label: "Is waste disposal proper?" }];
+  if (dept.includes("fire")) return [{ id: "fire_extinguisher", label: "Are fire extinguishers accessible and serviced?" }, { id: "fire_exit", label: "Are fire exits clearly marked and unobstructed?" }, { id: "fire_alarm", label: "Is the fire alarm system functional?" }, { id: "fire_sprinkler", label: "Are sprinkler systems operational?" }, { id: "fire_drill", label: "Are fire drill records maintained?" }];
+  if (dept.includes("health")) return [{ id: "health_cleanliness", label: "Is the premises clean and sanitized?" }, { id: "health_equipment", label: "Are medical equipment properly sterilized?" }, { id: "health_waste", label: "Is biomedical waste segregated and disposed correctly?" }, { id: "health_license", label: "Are required healthcare licenses displayed?" }, { id: "health_staff", label: "Are staff credentials and training records available?" }];
+  if (dept.includes("school")) return [{ id: "school_building", label: "Is the building structure safe?" }, { id: "school_fire", label: "Are fire safety measures in place?" }, { id: "school_sanitation", label: "Are toilets and sanitation facilities adequate?" }, { id: "school_drinking", label: "Is safe drinking water available?" }, { id: "school_playground", label: "Is the playground equipment safe?" }];
+  if (dept.includes("pollution") || dept.includes("environment")) return [{ id: "pollution_emission", label: "Are emission control systems operational?" }, { id: "pollution_effluent", label: "Is effluent treatment working properly?" }, { id: "pollution_waste", label: "Is hazardous waste stored and disposed correctly?" }, { id: "pollution_noise", label: "Are noise levels within permissible limits?" }, { id: "pollution_license", label: "Are pollution control board consents valid?" }];
+  if (dept.includes("factory") || dept.includes("industrial")) return [{ id: "factory_safety", label: "Are safety guards on machinery in place?" }, { id: "factory_ppe", label: "Are workers using required PPE?" }, { id: "factory_ventilation", label: "Is ventilation adequate?" }, { id: "factory_electrical", label: "Are electrical installations safe?" }, { id: "factory_fire", label: "Are fire safety measures adequate?" }];
+  return [{ id: "premises", label: "Are the premises clean and safe?" }, { id: "records", label: "Are required licences and records available?" }, { id: "safety", label: "Are safety measures in place?" }, { id: "staff", label: "Are staff trained and qualified?" }, { id: "equipment", label: "Is equipment properly maintained?" }];
 }
 
 function Stat({ label, value, icon: Icon, tone }: any) {
