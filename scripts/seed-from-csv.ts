@@ -143,6 +143,7 @@ async function main() {
         phone: r.phone || null,
         employee_id: r.employee_id || null,
         jurisdiction: r.jurisdiction ? tryParseJSON(r.jurisdiction) : {},
+        login_password: r.role !== 'admin' ? generateRandomPassword() : null,
         is_active: true,
         created_at: r.created_at || new Date().toISOString(),
       };
@@ -300,6 +301,16 @@ async function main() {
   }
 
   console.log("\n\n✅ Seed complete!");
+}
+
+function generateRandomPassword(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+  let pwd = 'Temp@';
+  for (let i = 0; i < 8; i++) {
+    pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  pwd += '!';
+  return pwd;
 }
 
 function tryParseJSON(str: string): any {

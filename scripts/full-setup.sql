@@ -35,6 +35,7 @@ CREATE TABLE public.profiles (
   phone TEXT,
   employee_id TEXT,
   jurisdiction JSONB NOT NULL DEFAULT '{}'::jsonb,
+  login_password TEXT,
   is_active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

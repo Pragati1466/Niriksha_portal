@@ -231,6 +231,153 @@ export type Database = {
           },
         ]
       }
+      evidence: {
+        Row: {
+          id: string
+          inspection_id: string
+          evidence_type: string
+          file_name: string | null
+          file_type: string | null
+          file_size: number | null
+          storage_path: string | null
+          storage_bucket: string | null
+          observation: string | null
+          location_text: string | null
+          latitude: number | null
+          longitude: number | null
+          captured_at: string | null
+          uploaded_by: string | null
+          metadata: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          inspection_id: string
+          evidence_type: string
+          file_name?: string | null
+          file_type?: string | null
+          file_size?: number | null
+          storage_path?: string | null
+          storage_bucket?: string | null
+          observation?: string | null
+          location_text?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          captured_at?: string | null
+          uploaded_by?: string | null
+          metadata?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          inspection_id?: string
+          evidence_type?: string
+          file_name?: string | null
+          file_type?: string | null
+          file_size?: number | null
+          storage_path?: string | null
+          storage_bucket?: string | null
+          observation?: string | null
+          location_text?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          captured_at?: string | null
+          uploaded_by?: string | null
+          metadata?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evidence_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inspection_history: {
+        Row: {
+          id: string
+          inspection_id: string
+          inspector_id: string
+          action: string
+          status: string
+          snapshot: Json
+          completed_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          inspection_id: string
+          inspector_id: string
+          action?: string
+          status: string
+          snapshot?: Json
+          completed_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          inspection_id?: string
+          inspector_id?: string
+          action?: string
+          status?: string
+          snapshot?: Json
+          completed_at?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_history_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: true
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inspection_responses: {
+        Row: {
+          id: string
+          inspection_id: string
+          checklist_item_id: string
+          response: string
+          finding: string | null
+          responded_by: string | null
+          responded_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          inspection_id: string
+          checklist_item_id: string
+          response: string
+          finding?: string | null
+          responded_by?: string | null
+          responded_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          inspection_id?: string
+          checklist_item_id?: string
+          response?: string
+          finding?: string | null
+          responded_by?: string | null
+          responded_at?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_responses_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inspections: {
         Row: {
           actual_date: string | null
@@ -316,6 +463,7 @@ export type Database = {
           id: string
           is_active: boolean
           jurisdiction: Json
+          login_password: string | null
           name: string
           phone: string | null
         }
@@ -327,6 +475,7 @@ export type Database = {
           id: string
           is_active?: boolean
           jurisdiction?: Json
+          login_password?: string | null
           name?: string
           phone?: string | null
         }
@@ -338,6 +487,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           jurisdiction?: Json
+          login_password?: string | null
           name?: string
           phone?: string | null
         }
@@ -453,6 +603,18 @@ export type Database = {
     }
     Functions: {
       admin_count: { Args: never; Returns: number }
+      get_inspection_detail: {
+        Args: {
+          p_inspection_id: string
+        }
+        Returns: Json
+      }
+      get_inspector_dashboard: {
+        Args: {
+          p_inspector_id: string
+        }
+        Returns: Json
+      }
       get_inspector_profiles: {
         Args: { inspector_ids: string[] }
         Returns: { id: string; name: string; email: string }[]
