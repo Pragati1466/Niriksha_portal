@@ -6,9 +6,18 @@ import { requireAdminRole } from "@/lib/admin.functions";
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({ meta: [{ title: "Admin Console — NIRIKSHA" }] }),
   beforeLoad: async () => {
+    console.log("[ADMIN beforeLoad] ✦ entered — calling requireAdminRole()");
     try {
-      await requireAdminRole();
-    } catch {
+      const result = await requireAdminRole();
+      console.log("[ADMIN beforeLoad] ✔ requireAdminRole succeeded:", result);
+    } catch (err: any) {
+      // Capture every detail before swallowing the error
+      console.error("[ADMIN beforeLoad] ✘ requireAdminRole threw:", err);
+      console.error("[ADMIN beforeLoad]   message :", err?.message ?? "(no message)");
+      console.error("[ADMIN beforeLoad]   status  :", err?.status ?? err?.statusCode ?? "(none)");
+      console.error("[ADMIN beforeLoad]   data    :", JSON.stringify(err?.data ?? err?.body ?? null));
+      console.error("[ADMIN beforeLoad]   stack   :", err?.stack ?? "(no stack)");
+      console.error("[ADMIN beforeLoad] → redirecting to /auth");
       throw redirect({ to: "/auth" });
     }
   },

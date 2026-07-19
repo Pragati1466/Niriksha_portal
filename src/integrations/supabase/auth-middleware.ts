@@ -32,6 +32,7 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 
 export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server(
   async ({ next }) => {
+    console.log("[requireSupabaseAuth] ✦ middleware entered");
     
     const SUPABASE_URL = process.env.SUPABASE_URL;
     const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
@@ -49,25 +50,33 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
     const request = getRequest();
 
     if (!request?.headers) {
+      console.error("[requireSupabaseAuth] ✘ No request headers available");
       throw new Error('Unauthorized: No request headers available');
     }
 
     const authHeader = request.headers.get('authorization');
+    console.log("[requireSupabaseAuth] Authorization header present:", !!authHeader);
 
     if (!authHeader) {
+      console.error("[requireSupabaseAuth] ✘ No Authorization header — attachSupabaseAuth may not have run, or session was missing at call time");
       throw new Error('Unauthorized: No authorization header provided');
     }
 
     if (!authHeader.startsWith('Bearer ')) {
+      console.error("[requireSupabaseAuth] ✘ Authorization header does not start with 'Bearer '");
       throw new Error('Unauthorized: Only Bearer tokens are supported');
     }
 
     const token = authHeader.replace('Bearer ', '');
     if (!token) {
+      console.error("[requireSupabaseAuth] ✘ Token is empty string after stripping 'Bearer '");
       throw new Error('Unauthorized: No token provided');
     }
 
-    if (token.split('.').length !== 3) {
+    const tokenParts = token.split('.');
+    console.log("[requireSupabaseAuth] Token segment count:", tokenParts.length, "(expected 3 for JWT)");
+    if (tokenParts.length !== 3) {
+      console.error("[requireSupabaseAuth] ✘ Token is not a valid 3-part JWT — got", tokenParts.length, "parts");
       throw new Error('Unauthorized: Invalid token');
     }
 
@@ -89,12 +98,19 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
       }
     );
 
+    console.log("[requireSupabaseAuth] Calling getClaims to validate token...");
     const { data, error } = await supabase.auth.getClaims(token);
+    console.log("[requireSupabaseAuth] getClaims result — claims present:", !!data?.claims, "| error:", error ?? null);
+
     if (error || !data?.claims) {
+      console.error("[requireSupabaseAuth] ✘ getClaims failed:", error?.message ?? "no claims returned");
       throw new Error('Unauthorized: Invalid token');
     }
 
+    console.log("[requireSupabaseAuth] ✔ Token valid — userId (sub):", data.claims.sub, "| role claim:", (data.claims as any).role ?? "(none)");
+
     if (!data.claims.sub) {
+      console.error("[requireSupabaseAuth] ✘ JWT has no 'sub' claim");
       throw new Error('Unauthorized: No user ID found in token');
     }
 

@@ -21,14 +21,26 @@ export const Route = createFileRoute("/auth")({
 async function getUserRole(
   userId: string
 ): Promise<"admin" | "inspector" | "supervisor" | null> {
+  console.log("[AUTH] getUserRole called for userId:", userId);
+
   const { data, error } = await supabase
     .from("user_roles")
     .select("role")
     .eq("user_id", userId)
     .maybeSingle();
 
-  if (error || !data) return null;
-  return data.role as "admin" | "inspector" | "supervisor";
+  console.log("[AUTH] user_roles query result — data:", data, "| error:", error);
+
+  if (error) {
+    console.warn("[AUTH] user_roles query error:", error.message, "| code:", error.code);
+  }
+  if (!data) {
+    console.warn("[AUTH] No role row found for userId:", userId, "— defaulting to null");
+  }
+
+  const role = (data?.role ?? null) as "admin" | "inspector" | "supervisor" | null;
+  console.log("[AUTH] Resolved role:", role);
+  return role;
 }
 
 function dashboardPath(
@@ -36,12 +48,17 @@ function dashboardPath(
 ): string {
   if (role === "supervisor") return "/supervisor";
   if (role === "inspector") return "/inspector";
+  // null role falls through to /admin — potential silent failure point
+  console.log("[AUTH] dashboardPath called with role:", role, "→ resolving to:", role === null ? "/admin (FALLBACK — role was null!)" : "/admin");
   return "/admin";
 }
 
 async function redirectAfterLogin(navigate: any, userId: string) {
+  console.log("[AUTH] redirectAfterLogin — userId:", userId);
   const role = await getUserRole(userId);
-  navigate({ to: dashboardPath(role) });
+  const path = dashboardPath(role);
+  console.log("[AUTH] Redirect decision — role:", role, "| path:", path);
+  navigate({ to: path });
 }
 
 
@@ -58,7 +75,10 @@ function AuthPage() {
   useEffect(() => {
   supabase.auth.getUser().then(({ data }) => {
     if (data.user) {
+      console.log("[AUTH] Already signed in on mount — userId:", data.user.id, "| email:", data.user.email);
       redirectAfterLogin(navigate, data.user.id);
+    } else {
+      console.log("[AUTH] No active session on mount — showing login form");
     }
   });
 }, [navigate]);
@@ -215,15 +235,22 @@ const { data, error } = await supabase.auth.signInWithPassword({
 setLoading(false);
 
 if (error) {
+  console.error("[AUTH] signInWithPassword error:", error.message);
   toast.error(error.message);
   return;
 }
 
+console.log("[AUTH] signInWithPassword succeeded");
+console.log("[AUTH] Authenticated user id:", data.user?.id ?? "(none)");
+console.log("[AUTH] User email:", data.user?.email ?? "(none)");
+
 toast.success("Signed in");
 
 if (data.user) {
+  console.log("[AUTH] Calling redirectAfterLogin for user:", data.user.id);
   redirectAfterLogin(navigate, data.user.id);
 } else {
+  console.warn("[AUTH] data.user is null after signInWithPassword — falling back to /admin");
   navigate({ to: "/admin" });
 }
   }
