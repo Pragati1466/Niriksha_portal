@@ -25,6 +25,7 @@ import {
   getSupervisorKpis,
   getInspectionStatusCounts,
   getSupervisorActivity,
+  getAvgInspectorProductivity,
 } from "@/lib/supervisor.functions";
 
 export const Route = createFileRoute("/_authenticated/supervisor/")({
@@ -54,6 +55,12 @@ function SupervisorOverviewPage() {
   const { data: activity, isLoading: activityLoading } = useQuery({
     queryKey: ["supervisor-activity"],
     queryFn: () => getSupervisorActivity(8),
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: avgInspectorProd, isLoading: avgInspectorLoading } = useQuery({
+    queryKey: ["supervisor-avg-inspector-prod"],
+    queryFn: () => getAvgInspectorProductivity("year"),
     refetchOnWindowFocus: false,
   });
 
@@ -93,7 +100,7 @@ function SupervisorOverviewPage() {
         <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
           <KpiCard label="High-Risk Coverage"   icon={ShieldAlert} accent="danger"  loading={kpisLoading} sub="% of high-risk inspections reviewed" />
           <KpiCard label="Avg. Report Turnaround" icon={Clock}     accent="default" loading={kpisLoading} sub="Hours from submission to approval" />
-          <KpiCard label="Inspector Productivity" icon={Users}     accent="default" loading={kpisLoading} sub="Avg. inspections per inspector" />
+          <KpiCard label="Inspector Productivity" icon={Users}     accent="default" value={avgInspectorProd ?? undefined} loading={avgInspectorLoading} sub="Avg. inspections per inspector" />
           <KpiCard label="AI Acceptance Rate"   icon={Brain}       accent="default" loading={kpisLoading} sub="% of AI reports accepted as-is" />
         </div>
       </section>

@@ -1080,6 +1080,21 @@ export async function getInspectorProductivity(period: AnalyticsPeriod): Promise
     .slice(0, 10);
 }
 
+/* ─── 5b. Avg Inspector Productivity (single scalar for Overview KPI card) ───
+   Returns: total completed inspections / unique inspectors in the given period.
+   Delegates entirely to getInspectorProductivity — no query logic is duplicated.
+   Defaults to "year" so the Overview card reflects the broadest meaningful range.
+─────────────────────────────────────────────────────────────────────────────── */
+
+export async function getAvgInspectorProductivity(
+  period: AnalyticsPeriod = "year",
+): Promise<number | null> {
+  const points = await getInspectorProductivity(period);
+  if (points.length === 0) return null;
+  const total = points.reduce((sum, p) => sum + p.completed, 0);
+  return Math.round((total / points.length) * 10) / 10;
+}
+
 /* ─── 6. Turnaround Trend ─── */
 
 export async function getTurnaroundTrend(period: AnalyticsPeriod): Promise<TurnaroundPoint[]> {
