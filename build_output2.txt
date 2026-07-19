@@ -1,0 +1,309 @@
+[33mThe plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the [1mresolve.tsconfigPaths[22m option. You can remove the plugin and set [1mresolve.tsconfigPaths: true[22m in your Vite config instead.[39m
+[33mBoth esbuild and oxc options were set. oxc options will be used and esbuild options will be ignored.[39m The following esbuild options were set: `{ keepNames: true }`
+[36mvite v8.1.5 [32mbuilding client environment for development...[36m[39m
+[2Ktransforming...[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/inspector.functions.ts:196:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/inspector.functions.ts:241:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/inspector.functions.ts:254:33 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:43:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:129:33 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:149:33 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:194:27 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:240:27 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:265:27 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:311:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:329:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:362:31 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:380:31 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:425:33 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:447:33 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:460:30 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:492:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:507:34 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:533:39 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:636:29 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:664:35 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:744:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:825:38 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:client] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:919:25 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+✓ 2372 modules transformed.
+rendering chunks...
+computing gzip size...
+.output/public/assets/styles-JgXzhYZA.css               119.66 kB │ gzip:  18.85 kB
+.output/public/assets/chevron-right-CcBDawhl.js           0.13 kB │ gzip:   0.14 kB
+.output/public/assets/plus-ukWcP5r3.js                    0.15 kB │ gzip:   0.15 kB
+.output/public/assets/x-BrrTD20M.js                       0.15 kB │ gzip:   0.15 kB
+.output/public/assets/circle-check-BehSLCWZ.js            0.17 kB │ gzip:   0.17 kB
+.output/public/assets/route-VBmDAfqD.js                   0.20 kB │ gzip:   0.18 kB
+.output/public/assets/triangle-alert-DPsWWr6g.js          0.26 kB │ gzip:   0.21 kB
+.output/public/assets/clipboard-check-BZLv__n2.js         0.30 kB │ gzip:   0.23 kB
+.output/public/assets/users-XebHHYtI.js                   0.30 kB │ gzip:   0.22 kB
+.output/public/assets/lock-CtPuRKiQ.js                    0.31 kB │ gzip:   0.25 kB
+.output/public/assets/shield-check-jgAwiaa2.js            0.32 kB │ gzip:   0.25 kB
+.output/public/assets/building-2-D9At0zUQ.js              0.38 kB │ gzip:   0.24 kB
+.output/public/assets/sparkles-Chrzeagc.js                0.49 kB │ gzip:   0.28 kB
+.output/public/assets/textarea-ilHgx4Q-.js                0.51 kB │ gzip:   0.35 kB
+.output/public/assets/dist-BCVGvzE5.js                    0.59 kB │ gzip:   0.41 kB
+.output/public/assets/input-BFqFdNU8.js                   0.61 kB │ gzip:   0.39 kB
+.output/public/assets/label-D0WnYUfa.js                   0.62 kB │ gzip:   0.40 kB
+.output/public/assets/separator-BSCzlrWu.js               0.75 kB │ gzip:   0.44 kB
+.output/public/assets/badge-BHsPeOsW.js                   0.77 kB │ gzip:   0.40 kB
+.output/public/assets/user-check-Cc4ZXYfS.js              0.83 kB │ gzip:   0.45 kB
+.output/public/assets/map-pin-BZkleCB8.js                 0.86 kB │ gzip:   0.46 kB
+.output/public/assets/list-checks-YhFtz-CN.js             0.98 kB │ gzip:   0.45 kB
+.output/public/assets/createLucideIcon-lSFCNJYA.js        1.19 kB │ gzip:   0.69 kB
+.output/public/assets/button-BrDKjXZf.js                  1.30 kB │ gzip:   0.64 kB
+.output/public/assets/dist-CXFhPXKC.js                    1.34 kB │ gzip:   0.66 kB
+.output/public/assets/table-3Ivwcyr8.js                   1.69 kB │ gzip:   0.61 kB
+.output/public/assets/dialog-DiWToRxN.js                  2.13 kB │ gzip:   0.86 kB
+.output/public/assets/useMutation-BCsEe0xC.js             2.24 kB │ gzip:   0.94 kB
+.output/public/assets/admin.settings-DsY4cyvS.js          3.82 kB │ gzip:   1.27 kB
+.output/public/assets/inspector-q-vJSP5l.js               5.02 kB │ gzip:   1.38 kB
+.output/public/assets/use-form-draft-30ifyunQ.js          5.28 kB │ gzip:   1.97 kB
+.output/public/assets/admin-B7EWb20t.js                   5.77 kB │ gzip:   1.68 kB
+.output/public/assets/en-US-mYnyRYFn.js                   7.89 kB │ gzip:   2.87 kB
+.output/public/assets/admin.audit-WJf06Q8i.js             8.71 kB │ gzip:   1.99 kB
+.output/public/assets/admin.departments-BfIWRikm.js       9.16 kB │ gzip:   2.12 kB
+.output/public/assets/react-dom-mddxDChg.js               9.24 kB │ gzip:   2.92 kB
+.output/public/assets/card-73y4dCAr.js                   10.66 kB │ gzip:   3.96 kB
+.output/public/assets/admin.templates-DmcmtjXw.js        11.94 kB │ gzip:   2.69 kB
+.output/public/assets/admin.establishments-CNnZ0zC2.js   16.53 kB │ gzip:   3.32 kB
+.output/public/assets/admin.users-0WC_NY_G.js            16.83 kB │ gzip:   3.43 kB
+.output/public/assets/auth-DmVxvRDb.js                   19.39 kB │ gzip:   4.24 kB
+.output/public/assets/admin.assignments-27tchaJu.js      20.23 kB │ gzip:   3.99 kB
+.output/public/assets/useStore-DCRejJk7.js               20.35 kB │ gzip:   7.22 kB
+.output/public/assets/select-3CK1lqHz.js                 22.23 kB │ gzip:   7.48 kB
+.output/public/assets/sidebar-Bg88FZoC.js                26.09 kB │ gzip:   7.45 kB
+.output/public/assets/useRouter-CvUQGMdF.js              26.17 kB │ gzip:   8.39 kB
+.output/public/assets/dist-BrYs3yuN.js                   27.10 kB │ gzip:  10.47 kB
+.output/public/assets/dist-aHgeXYw5.js                   29.83 kB │ gzip:  10.34 kB
+.output/public/assets/utils-ConA_ZZR.js                  30.33 kB │ gzip:   9.93 kB
+.output/public/assets/admin.index-D49Lm2PJ.js            35.28 kB │ gzip:   6.95 kB
+.output/public/assets/inspector.index-q5J_JxIr.js        74.79 kB │ gzip:  18.19 kB
+.output/public/assets/routes-C5i6f-Tf.js                 83.02 kB │ gzip:  16.95 kB
+.output/public/assets/index-B82We21U.js                 806.15 kB │ gzip: 231.40 kB
+
+[33m[33m[PLUGIN_TIMINGS] [0mYour build spent significant time in plugins. Here is a breakdown:
+  - vite-tsconfig-paths (57%)
+  - tanstack-start-core:import-protection (34%)
+  - tanstack-start-core:import-protection-transform-cache (7%)
+See https://rolldown.rs/reference/InputOptions.checks#plugintimings for more details.
+[39m
+[33m[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+[32m✓ built in 7.95s[39m
+[36mvite v8.1.5 [32mbuilding ssr environment for development...[36m[39m
+[2Ktransforming...[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/inspector.functions.ts?tss-serverfn-split:196:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/inspector.functions.ts?tss-serverfn-split:241:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/inspector.functions.ts?tss-serverfn-split:254:33 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts?tss-serverfn-split:43:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts?tss-serverfn-split:129:33 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts?tss-serverfn-split:149:33 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts?tss-serverfn-split:194:27 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts?tss-serverfn-split:240:27 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts?tss-serverfn-split:265:27 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts?tss-serverfn-split:311:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts?tss-serverfn-split:329:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts?tss-serverfn-split:362:31 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts?tss-serverfn-split:380:31 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts?tss-serverfn-split:425:33 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts?tss-serverfn-split:447:33 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts?tss-serverfn-split:460:30 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts?tss-serverfn-split:492:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts?tss-serverfn-split:507:34 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts?tss-serverfn-split:533:39 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts?tss-serverfn-split:636:29 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts?tss-serverfn-split:664:35 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts?tss-serverfn-split:744:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts?tss-serverfn-split:825:38 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts?tss-serverfn-split:919:25 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/inspector.functions.ts:196:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/inspector.functions.ts:241:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/inspector.functions.ts:254:33 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:43:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:129:33 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:149:33 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:194:27 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:240:27 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:265:27 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:311:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:329:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:362:31 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:380:31 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:425:33 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:447:33 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:460:30 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:492:36 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:507:34 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:533:39 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:636:29 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:664:35 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:744:41 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:825:38 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+[33m[plugin tanstack-start-core::server-fn:ssr] D:/Niriksha-project/Niriksha_portal/src/lib/admin.functions.ts:919:25 createServerFn().inputValidator() is deprecated. Use createServerFn().validator() instead.[39m
+✓ 118 modules transformed.
+rendering chunks...
+computing gzip size...
+node_modules/.nitro/vite/services/ssr/assets/styles-JgXzhYZA.css                                119.66 kB │ gzip: 18.85 kB
+node_modules/.nitro/vite/services/ssr/assets/utils-C_uf36nf.js                                    0.18 kB │ gzip:  0.15 kB
+node_modules/.nitro/vite/services/ssr/assets/empty-plugin-adapters-D9UWiqvJ.js                    0.22 kB │ gzip:  0.16 kB
+node_modules/.nitro/vite/services/ssr/assets/route-x99HGqLp.js                                    0.33 kB │ gzip:  0.22 kB
+node_modules/.nitro/vite/services/ssr/assets/createServerRpc-MBa5GZ-L.js                          0.40 kB │ gzip:  0.27 kB
+node_modules/.nitro/vite/services/ssr/assets/createSsrRpc-botJtEaH.js                             0.60 kB │ gzip:  0.36 kB
+node_modules/.nitro/vite/services/ssr/assets/label-DBD1bRRP.js                                    0.64 kB │ gzip:  0.38 kB
+node_modules/.nitro/vite/services/ssr/assets/separator-B3hsz7IR.js                                0.65 kB │ gzip:  0.38 kB
+node_modules/.nitro/vite/services/ssr/assets/textarea-kko37XEX.js                                 0.66 kB │ gzip:  0.42 kB
+node_modules/.nitro/vite/services/ssr/assets/input-B8Q2ztVi.js                                    0.75 kB │ gzip:  0.45 kB
+node_modules/.nitro/vite/services/ssr/assets/createMiddleware-B_4t7rW1.js                         0.83 kB │ gzip:  0.32 kB
+node_modules/.nitro/vite/services/ssr/assets/badge-D1Dupn2y.js                                    0.98 kB │ gzip:  0.50 kB
+node_modules/.nitro/vite/services/ssr/assets/client-Cr-n5ZN_.js                                   1.40 kB │ gzip:  0.69 kB
+node_modules/.nitro/vite/services/ssr/assets/button-BkEeRci-.js                                   1.67 kB │ gzip:  0.78 kB
+node_modules/.nitro/vite/services/ssr/assets/client.server-cr27M3x4.js                            1.76 kB │ gzip:  0.78 kB
+node_modules/.nitro/vite/services/ssr/assets/start-zRGHDMMV.js                                    1.86 kB │ gzip:  0.82 kB
+node_modules/.nitro/vite/services/ssr/assets/card-BlA28Wf_.js                                     2.16 kB │ gzip:  0.75 kB
+node_modules/.nitro/vite/services/ssr/assets/table-xxIuZmE-.js                                    2.37 kB │ gzip:  0.71 kB
+node_modules/.nitro/vite/services/ssr/assets/auth-middleware-BwdutfJC.js                          2.66 kB │ gzip:  1.09 kB
+node_modules/.nitro/vite/services/ssr/assets/dialog-Bk9pEsHD.js                                   3.11 kB │ gzip:  1.00 kB
+node_modules/.nitro/vite/services/ssr/assets/inspector.index-DiWGm6fA.js                          3.27 kB │ gzip:  1.33 kB
+node_modules/.nitro/vite/services/ssr/index.js                                                    3.41 kB │ gzip:  1.46 kB
+node_modules/.nitro/vite/services/ssr/assets/select-Dg1urBTx.js                                   4.67 kB │ gzip:  1.34 kB
+node_modules/.nitro/vite/services/ssr/assets/admin.settings-DEDftQdX.js                           5.47 kB │ gzip:  1.64 kB
+node_modules/.nitro/vite/services/ssr/assets/use-form-draft-De_W3bLs.js                           5.49 kB │ gzip:  1.68 kB
+node_modules/.nitro/vite/services/ssr/assets/inspector-DJ_bFA5T.js                                7.19 kB │ gzip:  1.71 kB
+node_modules/.nitro/vite/services/ssr/assets/admin-DrjL5e-p.js                                    7.50 kB │ gzip:  1.83 kB
+node_modules/.nitro/vite/services/ssr/assets/__23tanstack-start-server-fn-resolver-B7f0NhaA.js    7.93 kB │ gzip:  2.28 kB
+node_modules/.nitro/vite/services/ssr/assets/_tanstack-start-manifest_v-Csx6PIYY.js               8.16 kB │ gzip:  1.32 kB
+node_modules/.nitro/vite/services/ssr/assets/admin.functions-C775f7Ij.js                         11.26 kB │ gzip:  2.89 kB
+node_modules/.nitro/vite/services/ssr/assets/createServerFn-BFFE07zL.js                          12.14 kB │ gzip:  3.54 kB
+node_modules/.nitro/vite/services/ssr/assets/admin.audit-CsAqWhBu.js                             12.81 kB │ gzip:  2.41 kB
+node_modules/.nitro/vite/services/ssr/assets/admin.departments-CwKocPzq.js                       13.89 kB │ gzip:  2.78 kB
+node_modules/.nitro/vite/services/ssr/assets/router-DTzzWiFy.js                                  15.87 kB │ gzip:  3.67 kB
+node_modules/.nitro/vite/services/ssr/assets/inspector.functions-BlzR2xcD.js                     17.44 kB │ gzip:  4.78 kB
+node_modules/.nitro/vite/services/ssr/assets/admin.templates-CvNZJvZ9.js                         18.22 kB │ gzip:  3.53 kB
+node_modules/.nitro/vite/services/ssr/assets/sidebar-Q4pEFaz1.js                                 24.41 kB │ gzip:  5.32 kB
+node_modules/.nitro/vite/services/ssr/assets/admin.establishments-DHAZHnBz.js                    24.52 kB │ gzip:  4.26 kB
+node_modules/.nitro/vite/services/ssr/assets/admin.users-BthvGP1b.js                             25.73 kB │ gzip:  4.30 kB
+node_modules/.nitro/vite/services/ssr/assets/auth-BpL3TCkR.js                                    26.51 kB │ gzip:  4.69 kB
+node_modules/.nitro/vite/services/ssr/assets/admin.assignments-C9_sHFeU.js                       29.45 kB │ gzip:  5.07 kB
+node_modules/.nitro/vite/services/ssr/assets/admin.index-XKnuxOCd.js                             41.46 kB │ gzip:  6.52 kB
+node_modules/.nitro/vite/services/ssr/assets/admin.functions-BOKCaWtl.js                         47.96 kB │ gzip:  9.54 kB
+node_modules/.nitro/vite/services/ssr/assets/server-D6OG5wWs.js                                  53.24 kB │ gzip: 13.71 kB
+node_modules/.nitro/vite/services/ssr/assets/inspector.index-BBrbEgp2.js                         75.36 kB │ gzip: 14.16 kB
+node_modules/.nitro/vite/services/ssr/assets/routes-B-5G8a7K.js                                 109.41 kB │ gzip: 18.72 kB
+
+[33m[33m[PLUGIN_TIMINGS] [0mYour build spent significant time in plugins. Here is a breakdown:
+  - tanstack-start-core:import-protection (41%)
+  - vite-tsconfig-paths (27%)
+  - tanstack-start-core:import-protection-transform-cache (9%)
+  - tanstack-router:code-splitter:compile-reference-file (7%)
+  - tanstack-router:code-splitter:compile-virtual-file (5%)
+See https://rolldown.rs/reference/InputOptions.checks#plugintimings for more details.
+[39m
+[32m✓ built in 5.76s[39m
+
+[90m[[90mnitro[90m][39m [35m◐[39m Building [[35mNitro[39m] [2m(preset: [36mcloudflare-module[39m, compatibility: [36m2026-07-19[39m)[22m
+[90m[[90mnitro[90m][39m [32m✔[39m Generated public [36m.output/public[39m
+[36mvite v8.1.5 [32mbuilding nitro environment for development...[36m[39m
+
+[43m[30m WARN [39m[49m [36minlineDynamicImports[39m option is ignored because the [36mcodeSplitting[39m option is specified.
+
+[2Ktransforming...✓ 2397 modules transformed.
+rendering chunks...
+computing gzip size...
+.output/server/_libs/radix-ui__number.mjs                            0.17 kB │ gzip:   0.15 kB
+.output/server/_ssr/empty-plugin-adapters-D9UWiqvJ.mjs               0.23 kB │ gzip:   0.16 kB
+.output/server/_ssr/utils-C_uf36nf.mjs                               0.29 kB │ gzip:   0.21 kB
+.output/server/_ssr/createServerRpc-MBa5GZ-L.mjs                     0.40 kB │ gzip:   0.28 kB
+.output/server/_libs/radix-ui__primitive.mjs                         0.43 kB │ gzip:   0.24 kB
+.output/server/_ssr/route-x99HGqLp.mjs                               0.48 kB │ gzip:   0.31 kB
+.output/server/_libs/radix-ui__react-direction.mjs                   0.59 kB │ gzip:   0.32 kB
+.output/server/_chunks/ssr-renderer.mjs                              0.60 kB │ gzip:   0.36 kB
+.output/server/_ssr/createSsrRpc-botJtEaH.mjs                        0.61 kB │ gzip:   0.38 kB
+.output/server/_ssr/createMiddleware-B_4t7rW1.mjs                    0.83 kB │ gzip:   0.33 kB
+.output/server/_libs/radix-ui__react-label.mjs                       0.88 kB │ gzip:   0.46 kB
+.output/server/_libs/radix-ui__react-arrow.mjs                       0.93 kB │ gzip:   0.49 kB
+.output/server/_ssr/separator-B3hsz7IR.mjs                           0.94 kB │ gzip:   0.48 kB
+.output/server/_ssr/label-DBD1bRRP.mjs                               0.96 kB │ gzip:   0.48 kB
+.output/server/_ssr/textarea-kko37XEX.mjs                            0.99 kB │ gzip:   0.54 kB
+.output/server/_ssr/input-B8Q2ztVi.mjs                               1.08 kB │ gzip:   0.57 kB
+.output/server/_runtime.mjs                                          1.14 kB │ gzip:   0.57 kB
+.output/server/_libs/hookable.mjs                                    1.16 kB │ gzip:   0.51 kB
+.output/server/_ssr/badge-D1Dupn2y.mjs                               1.20 kB │ gzip:   0.56 kB
+.output/server/_libs/radix-ui__react-separator.mjs                   1.26 kB │ gzip:   0.58 kB
+.output/server/_ssr/client-Cr-n5ZN_.mjs                              1.45 kB │ gzip:   0.73 kB
+.output/server/_ssr/start-zRGHDMMV.mjs                               1.76 kB │ gzip:   0.80 kB
+.output/server/_ssr/client.server-cr27M3x4.mjs                       1.86 kB │ gzip:   0.85 kB
+.output/server/_ssr/button-BkEeRci-.mjs                              1.99 kB │ gzip:   0.88 kB
+.output/server/_ssr/card-BlA28Wf_.mjs                                2.60 kB │ gzip:   0.84 kB
+.output/server/_ssr/auth-middleware-BwdutfJC.mjs                     2.76 kB │ gzip:   1.13 kB
+.output/server/_ssr/table-xxIuZmE-.mjs                               2.93 kB │ gzip:   0.84 kB
+.output/server/_libs/class-variance-authority+clsx.mjs               3.17 kB │ gzip:   1.24 kB
+.output/server/_libs/radix-ui__react-collection.mjs                  3.24 kB │ gzip:   1.01 kB
+.output/server/_ssr/ssr.mjs                                          3.34 kB │ gzip:   1.46 kB
+.output/server/_ssr/inspector.index-DiWGm6fA.mjs                     3.48 kB │ gzip:   1.40 kB
+.output/server/_ssr/dialog-Bk9pEsHD.mjs                              3.71 kB │ gzip:   1.15 kB
+.output/server/_ssr/select-Dg1urBTx.mjs                              5.61 kB │ gzip:   1.54 kB
+.output/server/_libs/radix-ui__react-tabs.mjs                        5.75 kB │ gzip:   1.68 kB
+.output/server/_ssr/use-form-draft-De_W3bLs.mjs                      5.77 kB │ gzip:   1.81 kB
+.output/server/_ssr/admin.settings-DEDftQdX.mjs                      6.28 kB │ gzip:   1.78 kB
+.output/server/_libs/tanstack__react-query.mjs                       7.36 kB │ gzip:   1.95 kB
+.output/server/_ssr/inspector-DJ_bFA5T.mjs                           8.14 kB │ gzip:   1.82 kB
+.output/server/__23tanstack-start-server-fn-resolver-B7f0NhaA.mjs    8.21 kB │ gzip:   2.32 kB
+.output/server/_tanstack-start-manifest_v-Csx6PIYY.mjs               8.22 kB │ gzip:   1.36 kB
+.output/server/_ssr/admin-DrjL5e-p.mjs                               8.50 kB │ gzip:   1.95 kB
+.output/server/_libs/@radix-ui/react-roving-focus+[...].mjs          9.43 kB │ gzip:   2.66 kB
+.output/server/_libs/h3-v2+rou3.mjs                                  9.81 kB │ gzip:   3.05 kB
+.output/server/_libs/@radix-ui/react-popper+[...].mjs               11.31 kB │ gzip:   3.34 kB
+.output/server/_ssr/admin.functions-C775f7Ij.mjs                    11.64 kB │ gzip:   2.99 kB
+.output/server/_ssr/createServerFn-BFFE07zL.mjs                     11.65 kB │ gzip:   3.55 kB
+.output/server/_libs/tanstack__history.mjs                          12.09 kB │ gzip:   3.48 kB
+.output/server/_libs/supabase__functions-js.mjs                     12.36 kB │ gzip:   3.42 kB
+.output/server/_ssr/admin.audit-CsAqWhBu.mjs                        14.56 kB │ gzip:   2.57 kB
+.output/server/_libs/h3+rou3+srvx.mjs                               14.86 kB │ gzip:   4.41 kB
+.output/server/_ssr/admin.departments-CwKocPzq.mjs                  15.65 kB │ gzip:   2.95 kB
+.output/server/_ssr/router-DTzzWiFy.mjs                             15.87 kB │ gzip:   3.73 kB
+.output/server/_ssr/inspector.functions-BlzR2xcD.mjs                17.66 kB │ gzip:   4.86 kB
+.output/server/_libs/radix-ui__react-tooltip.mjs                    18.30 kB │ gzip:   4.17 kB
+.output/server/_ssr/admin.templates-CvNZJvZ9.mjs                    20.48 kB │ gzip:   3.71 kB
+.output/server/index.mjs                                            21.57 kB │ gzip:   5.92 kB
+.output/server/_libs/@floating-ui/dom+[...].mjs                     25.38 kB │ gzip:   6.57 kB
+.output/server/_libs/@floating-ui/core+[...].mjs                    25.57 kB │ gzip:   6.33 kB
+.output/server/_ssr/sidebar-Q4pEFaz1.mjs                            26.06 kB │ gzip:   5.50 kB
+.output/server/_ssr/admin.establishments-DHAZHnBz.mjs               27.35 kB │ gzip:   4.44 kB
+.output/server/_ssr/admin.users-BthvGP1b.mjs                        28.88 kB │ gzip:   4.49 kB
+.output/server/_ssr/auth-BpL3TCkR.mjs                               29.88 kB │ gzip:   4.91 kB
+.output/server/_libs/@floating-ui/react-dom+[...].mjs               31.30 kB │ gzip:   7.98 kB
+.output/server/_ssr/admin.assignments-C9_sHFeU.mjs                  32.76 kB │ gzip:   5.26 kB
+.output/server/_libs/lucide-react.mjs                               33.68 kB │ gzip:   6.37 kB
+.output/server/_libs/supabase__supabase-js.mjs                      36.27 kB │ gzip:  10.74 kB
+.output/server/_libs/@radix-ui/react-select+[...].mjs               45.87 kB │ gzip:   9.77 kB
+.output/server/_ssr/admin.index-XKnuxOCd.mjs                        46.24 kB │ gzip:   6.79 kB
+.output/server/_ssr/admin.functions-BOKCaWtl.mjs                    48.40 kB │ gzip:   9.65 kB
+.output/server/_libs/supabase__phoenix.mjs                          50.54 kB │ gzip:  12.76 kB
+.output/server/_libs/sonner.mjs                                     51.91 kB │ gzip:  11.77 kB
+.output/server/_ssr/server-D6OG5wWs.mjs                             52.04 kB │ gzip:  13.63 kB
+.output/server/_libs/tanstack__query-core.mjs                       65.81 kB │ gzip:  13.90 kB
+.output/server/_libs/supabase__realtime-js+unenv.mjs                78.21 kB │ gzip:  20.00 kB
+.output/server/_libs/@tanstack/router-core+[...].mjs                80.17 kB │ gzip:  20.16 kB
+.output/server/_ssr/inspector.index-BBrbEgp2.mjs                    82.26 kB │ gzip:  14.43 kB
+.output/server/_libs/@radix-ui/react-alert-dialog+[...].mjs         85.02 kB │ gzip:  19.95 kB
+.output/server/_libs/tailwind-merge.mjs                             88.13 kB │ gzip:  15.66 kB
+.output/server/_libs/zod.mjs                                       100.12 kB │ gzip:  17.34 kB
+.output/server/_libs/date-fns.mjs                                  103.97 kB │ gzip:  19.79 kB
+.output/server/_libs/supabase__postgrest-js.mjs                    105.41 kB │ gzip:  21.66 kB
+.output/server/_libs/@supabase/storage-js+[...].mjs                118.94 kB │ gzip:  22.11 kB
+.output/server/_ssr/routes-B-5G8a7K.mjs                            120.62 kB │ gzip:  19.18 kB
+.output/server/_libs/supabase__auth-js.mjs                         302.12 kB │ gzip:  60.25 kB
+.output/server/_libs/@tanstack/react-router+[...].mjs              657.74 kB │ gzip: 138.44 kB
+
+[32m✓ built in 3.11s[39m
+[90m[[90mnitro[90m][39m [36mℹ[39m Using auto generated worker name: [36mpragati1466-niriksha-portal[39m
+[36mℹ[39m Generated [36m.output/server/wrangler.json[39m
+[36mℹ[39m Generated [36m.wrangler/deploy/config.json[39m
+[36mℹ[39m Generated [36m.output/public/_headers[39m
+[36mℹ[39m Generated [36m.output/nitro.json[39m
+
+[90m[[90mnitro[90m][39m [32m✔[39m You can preview this build using [36mnpx vite preview[39m
+[90m[[90mnitro[90m][39m [32m✔[39m You can deploy this build using [36mnpx nitro deploy --prebuilt[39m

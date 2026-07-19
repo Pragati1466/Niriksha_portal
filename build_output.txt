@@ -1,0 +1,32 @@
+[33mThe plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the [1mresolve.tsconfigPaths[22m option. You can remove the plugin and set [1mresolve.tsconfigPaths: true[22m in your Vite config instead.[39m
+[33mBoth esbuild and oxc options were set. oxc options will be used and esbuild options will be ignored.[39m The following esbuild options were set: `{ keepNames: true }`
+Error: Error transforming route file D:/Niriksha-project/Niriksha_portal/src/routes/auth.tsx: SyntaxError: Unexpected token (50:1)
+    at file:///D:/Niriksha-project/Niriksha_portal/node_modules/@tanstack/router-generator/dist/esm/generator.js:143:13
+    at async generate (file:///D:/Niriksha-project/Niriksha_portal/node_modules/@tanstack/router-plugin/dist/esm/core/router-generator-plugin.js:39:4)
+    at async BasicMinimalPluginContext.configResolved (file:///D:/Niriksha-project/Niriksha_portal/node_modules/@tanstack/router-plugin/dist/esm/core/router-generator-plugin.js:56:4)
+    at async Promise.all (index 5)
+    at async resolveConfig (file:///D:/Niriksha-project/Niriksha_portal/node_modules/vite/dist/node/chunks/node.js:35909:2)
+    at async createBuilder (file:///D:/Niriksha-project/Niriksha_portal/node_modules/vite/dist/node/chunks/node.js:33458:17)
+    at async CAC.<anonymous> (file:///D:/Niriksha-project/Niriksha_portal/node_modules/vite/dist/node/cli.js:765:19)
+[36mvite v8.1.5 [32mbuilding client environment for development...[36m[39m
+[2Ktransforming...✓ 223 modules transformed.
+[31m✗[39m Build failed in 544ms
+[31merror during build:
+[31mBuild failed with 1 error:
+
+[plugin tanstack-start:route-tree-client-plugin]
+Error: Crawling result not available
+    at LoadPluginContextImpl.handler (file:///D:/Niriksha-project/Niriksha_portal/node_modules/@tanstack/start-plugin-core/dist/esm/vite/start-router-plugin/plugin.js:69:32)
+    at async plugin (file:///D:/Niriksha-project/Niriksha_portal/node_modules/vite/node_modules/rolldown/dist/shared/bindingify-input-options-XPJLJOD0.mjs:1547:16)
+    at async plugin.<computed> (file:///D:/Niriksha-project/Niriksha_portal/node_modules/vite/node_modules/rolldown/dist/shared/bindingify-input-options-XPJLJOD0.mjs:1959:12)[31m
+    at aggregateBindingErrorsIntoJsError (file:///D:/Niriksha-project/Niriksha_portal/node_modules/vite/node_modules/rolldown/dist/shared/error-BHRSI0R7.mjs:48:18)
+    at unwrapBindingResult (file:///D:/Niriksha-project/Niriksha_portal/node_modules/vite/node_modules/rolldown/dist/shared/error-BHRSI0R7.mjs:18:128)
+    at #build (file:///D:/Niriksha-project/Niriksha_portal/node_modules/vite/node_modules/rolldown/dist/shared/rolldown-build-CtPvmZgJ.mjs:3276:34)
+    at async buildEnvironment (file:///D:/Niriksha-project/Niriksha_portal/node_modules/vite/dist/node/chunks/node.js:33061:66)
+    at async Object.build (file:///D:/Niriksha-project/Niriksha_portal/node_modules/vite/dist/node/chunks/node.js:33483:19)
+    at async buildStartViteEnvironments (file:///D:/Niriksha-project/Niriksha_portal/node_modules/@tanstack/start-plugin-core/dist/esm/vite/planning.js:95:23)
+    at async Object.buildApp (file:///D:/Niriksha-project/Niriksha_portal/node_modules/@tanstack/start-plugin-core/dist/esm/vite/plugin.js:113:8)
+    at async Object.buildApp (file:///D:/Niriksha-project/Niriksha_portal/node_modules/vite/dist/node/chunks/node.js:33475:6)
+    at async CAC.<anonymous> (file:///D:/Niriksha-project/Niriksha_portal/node_modules/vite/dist/node/cli.js:776:3) {
+  errors: [Getter/Setter]
+}[39m
