@@ -24,8 +24,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   getSupervisorKpis,
   getInspectionStatusCounts,
-  getSupervisorActivity,
+  getSupervisorReviewActivity,
   getAvgInspectorProductivity,
+  getHighRiskCoverage,
+  getAvgTurnaroundHours,
+  getAIAcceptanceRateAllTime,
+  type ReviewActivityEntry,
 } from "@/lib/supervisor.functions";
 
 export const Route = createFileRoute("/_authenticated/supervisor/")({
@@ -53,14 +57,32 @@ function SupervisorOverviewPage() {
   });
 
   const { data: activity, isLoading: activityLoading } = useQuery({
-    queryKey: ["supervisor-activity"],
-    queryFn: () => getSupervisorActivity(8),
+    queryKey: ["supervisor-review-activity"],
+    queryFn: () => getSupervisorReviewActivity(8),
     refetchOnWindowFocus: false,
   });
 
   const { data: avgInspectorProd, isLoading: avgInspectorLoading } = useQuery({
     queryKey: ["supervisor-avg-inspector-prod"],
     queryFn: () => getAvgInspectorProductivity("year"),
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: highRiskCoverage, isLoading: highRiskCoverageLoading } = useQuery({
+    queryKey: ["supervisor-high-risk-coverage"],
+    queryFn: getHighRiskCoverage,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: avgTurnaroundHours, isLoading: avgTurnaroundLoading } = useQuery({
+    queryKey: ["supervisor-avg-turnaround-hours"],
+    queryFn: getAvgTurnaroundHours,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: aiAcceptance, isLoading: aiAcceptanceLoading } = useQuery({
+    queryKey: ["supervisor-ai-acceptance-rate"],
+    queryFn: getAIAcceptanceRateAllTime,
     refetchOnWindowFocus: false,
   });
 
@@ -98,10 +120,10 @@ function SupervisorOverviewPage() {
       <section>
         <SectionLabel>Performance Indicators</SectionLabel>
         <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <KpiCard label="High-Risk Coverage"   icon={ShieldAlert} accent="danger"  loading={kpisLoading} sub="% of high-risk inspections reviewed" />
-          <KpiCard label="Avg. Report Turnaround" icon={Clock}     accent="default" loading={kpisLoading} sub="Hours from submission to approval" />
-          <KpiCard label="Inspector Productivity" icon={Users}     accent="default" value={avgInspectorProd ?? undefined} loading={avgInspectorLoading} sub="Avg. inspections per inspector" />
-          <KpiCard label="AI Acceptance Rate"   icon={Brain}       accent="default" loading={kpisLoading} sub="% of AI reports accepted as-is" />
+          <KpiCard label="High-Risk Coverage"    icon={ShieldAlert} accent="danger"  value={highRiskCoverage ?? undefined}               loading={highRiskCoverageLoading} sub="% of high-risk inspections reviewed" />
+          <KpiCard label="Avg. Report Turnaround" icon={Clock}      accent="default" value={avgTurnaroundHours ?? undefined}              loading={avgTurnaroundLoading}    sub="Hours from submission to approval" />
+          <KpiCard label="Inspector Productivity" icon={Users}      accent="default" value={avgInspectorProd ?? undefined}                loading={avgInspectorLoading}     sub="Avg. inspections per inspector" />
+          <KpiCard label="AI Acceptance Rate"     icon={Brain}      accent="default" value={aiAcceptance?.acceptanceRate ?? undefined}    loading={aiAcceptanceLoading}     sub="% of AI reports accepted as-is" />
         </div>
       </section>
 
@@ -230,10 +252,6 @@ function EmptyState({
   );
 }
 
-function humanAction(a: string) {
-  return a === "INSERT" ? "Created" : a === "UPDATE" ? "Updated" : a === "DELETE" ? "Deleted" : a;
-}
-
 /* ─────────────────────────────────────────────────────────────
    Panels
 ───────────────────────────────────────────────────────────── */
@@ -242,9 +260,17 @@ function RecentActivityPanel({
   items,
   loading,
 }: {
-  items: { id: number; action: string; entity_type: string; summary: string | null; created_at: string }[];
+  items: ReviewActivityEntry[];
   loading: boolean;
 }) {
+  const decisionColor = (d: "approved" | "rejected") =>
+    d === "approved"
+      ? "bg-emerald-500"
+      : "bg-destructive";
+
+  const decisionLabel = (d: "approved" | "rejected") =>
+    d === "approved" ? "Approved" : "Rejected";
+
   return (
     <PanelCard
       title="Recent Review Activity"
@@ -283,19 +309,17 @@ function RecentActivityPanel({
           <ol className="space-y-3">
             {items.map((a) => (
               <li key={a.id} className="flex gap-3">
-                <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
+                <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${decisionColor(a.decision)}`} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 text-sm">
-                    <span className="font-medium text-foreground">{humanAction(a.action)}</span>
-                    <Badge variant="outline" className="border-border/60 text-[10px] uppercase tracking-wider">
-                      {a.entity_type}
-                    </Badge>
+                    <span className="font-medium text-foreground">{decisionLabel(a.decision)}</span>
+                    <span className="truncate text-foreground">{a.establishmentName}</span>
                   </div>
-                  {a.summary && (
-                    <div className="mt-0.5 truncate text-xs text-muted-foreground">{a.summary}</div>
+                  {a.remarks && (
+                    <div className="mt-0.5 truncate text-xs text-muted-foreground">{a.remarks}</div>
                   )}
                   <div className="mt-0.5 text-xs text-muted-foreground">
-                    {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}
+                    {formatDistanceToNow(new Date(a.reviewedAt), { addSuffix: true })}
                   </div>
                 </div>
               </li>

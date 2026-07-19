@@ -552,6 +552,94 @@ export type Database = {
           },
         ]
       }
+      supervisor_reviews: {
+        Row: {
+          id: string
+          inspection_id: string
+          supervisor_id: string
+          decision: string
+          remarks: string | null
+          reviewed_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          inspection_id: string
+          supervisor_id: string
+          decision: string
+          remarks?: string | null
+          reviewed_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          inspection_id?: string
+          supervisor_id?: string
+          decision?: string
+          remarks?: string | null
+          reviewed_at?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supervisor_reviews_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: true
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_recommendations: {
+        Row: {
+          id: string
+          inspection_id: string
+          supervisor_id: string
+          ai_output: Json
+          recommendation_text: string | null
+          ai_risk_level: string | null
+          ai_risk_score: number | null
+          supervisor_decision: string | null
+          supervisor_notes: string | null
+          decided_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          inspection_id: string
+          supervisor_id: string
+          ai_output?: Json
+          recommendation_text?: string | null
+          ai_risk_level?: string | null
+          ai_risk_score?: number | null
+          supervisor_decision?: string | null
+          supervisor_notes?: string | null
+          decided_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          inspection_id?: string
+          supervisor_id?: string
+          ai_output?: Json
+          recommendation_text?: string | null
+          ai_risk_level?: string | null
+          ai_risk_score?: number | null
+          supervisor_decision?: string | null
+          supervisor_notes?: string | null
+          decided_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_recommendations_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: true
+            referencedRelation: "inspections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_settings: {
         Row: {
           description: string | null
@@ -603,6 +691,44 @@ export type Database = {
     }
     Functions: {
       admin_count: { Args: never; Returns: number }
+      get_approval_rate: {
+        Args: {
+          p_from?: string | null
+          p_to?: string | null
+        }
+        Returns: Json
+      }
+      get_approval_trend: {
+        Args: {
+          p_from?: string | null
+          p_to?: string | null
+          p_bucket?: string
+        }
+        Returns: {
+          bucket_label: string
+          approved: number
+          rejected: number
+        }[]
+      }
+      get_ai_acceptance_rate: {
+        Args: {
+          p_from?: string | null
+          p_to?: string | null
+        }
+        Returns: Json
+      }
+      get_ai_acceptance_trend: {
+        Args: {
+          p_from?: string | null
+          p_to?: string | null
+          p_bucket?: string
+        }
+        Returns: {
+          bucket_label: string
+          accepted: number
+          rejected: number
+        }[]
+      }
       get_inspection_detail: {
         Args: {
           p_inspection_id: string

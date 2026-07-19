@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   ChevronRight, Building2, User, Calendar, ClipboardList,
   Shield, CheckCircle2, XCircle, RotateCcw, Plus, Brain,
@@ -28,6 +29,7 @@ import {
 import {
   getInspectionDetail,
   getRiskProfileForEstablishment,
+  submitSupervisorReview,
   type InspectionDetail,
   type RiskProfileRow,
 } from "@/lib/supervisor.functions";
@@ -64,12 +66,15 @@ function InspectionReviewWorkspace() {
   const { data: riskProfile } = useQuery({
     queryKey: ["risk-profile", inspection?.establishmentName],
     queryFn: () => getRiskProfileForEstablishment(
-      // We need the establishment_id — it comes back as part of the detail
       (inspection as any)?._establishmentId ?? "",
     ),
     enabled: !!inspection,
     refetchOnWindowFocus: false,
   });
+
+  // Lifted AI risk result — shared between RiskAnalysisCard (sets it) and
+  // ApprovalWorkflowSection (reads it to persist into ai_recommendations).
+  const [aiRiskResult, setAiRiskResult] = useState<RiskScoreResponse | null>(null);
 
   const statusColors: Record<string, string> = {
     pending:     "border-amber-500/40 bg-amber-500/10",
@@ -166,8 +171,8 @@ function InspectionReviewWorkspace() {
           <InspectionTabsSection inspection={inspection} loading={isLoading} />
         </div>
         <div className="space-y-5">
-          <AIDecisionSupportSection riskProfile={riskProfile ?? null} inspection={inspection ?? null} />
-          <ApprovalWorkflowSection inspectionId={id} />
+          <AIDecisionSupportSection riskProfile={riskProfile ?? null} inspection={inspection ?? null} onAiRiskResult={setAiRiskResult} />
+          <ApprovalWorkflowSection inspectionId={id} aiRiskResult={aiRiskResult} />
         </div>
       </div>
     </div>
@@ -552,9 +557,11 @@ function EvidenceTab({
 function AIDecisionSupportSection({
   riskProfile,
   inspection,
+  onAiRiskResult,
 }: {
   riskProfile: RiskProfileRow | null;
   inspection: InspectionDetail | null;
+  onAiRiskResult: (result: RiskScoreResponse) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -562,7 +569,7 @@ function AIDecisionSupportSection({
         <Brain className="h-3.5 w-3.5" />
         AI Decision Intelligence
       </div>
-      <RiskAnalysisCard riskProfile={riskProfile} inspection={inspection} />
+      <RiskAnalysisCard riskProfile={riskProfile} inspection={inspection} onResult={onAiRiskResult} />
       <EvidenceVerificationCard inspection={inspection} />
       <AIReportCard inspection={inspection} />
       <RecommendActionCard inspection={inspection} />
@@ -573,9 +580,11 @@ function AIDecisionSupportSection({
 function RiskAnalysisCard({
   riskProfile,
   inspection,
+  onResult,
 }: {
   riskProfile: RiskProfileRow | null;
   inspection: InspectionDetail | null;
+  onResult: (result: RiskScoreResponse) => void;
 }) {
   const [aiResult, setAiResult] = useState<RiskScoreResponse | null>(null);
 
@@ -584,7 +593,10 @@ function RiskAnalysisCard({
       if (!inspection) throw new Error("No inspection data");
       return getRiskScore(await buildAIPayload(inspection));
     },
-    onSuccess: (data) => setAiResult(data),
+    onSuccess: (data) => {
+      setAiResult(data);
+      onResult(data);   // bubble up to InspectionReviewWorkspace
+    },
   });
 
   // Prefer live AI result → DB risk_profile → inspection snapshot
@@ -921,11 +933,52 @@ function AIAgentBadge({ active = false }: { active?: boolean }) {
    Approval Workflow
 ───────────────────────────────────────────────────────────── */
 
-function ApprovalWorkflowSection({ inspectionId }: { inspectionId: string }) {
+function ApprovalWorkflowSection({ inspectionId, aiRiskResult }: { inspectionId: string; aiRiskResult: RiskScoreResponse | null }) {
   const [notes, setNotes] = useState("");
   const [modifyOpen, setModifyOpen] = useState(false);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [reinspectOpen, setReinspectOpen] = useState(false);
+
+  const qc = useQueryClient();
+
+  const reviewMutation = useMutation({
+    mutationFn: ({ decision }: { decision: "approved" | "rejected" }) => {
+      console.log("[ai_rec DEBUG] ApprovalWorkflowSection — aiRiskResult at submit:", aiRiskResult);
+      return submitSupervisorReview(
+        inspectionId,
+        decision,
+        notes,
+        aiRiskResult
+          ? {
+              risk_score:  aiRiskResult.risk_score,
+              risk_level:  aiRiskResult.risk_level,
+              explanation: aiRiskResult.explanation,
+            }
+          : null,
+      );
+    },
+    onSuccess: (_data, { decision }) => {
+      toast.success(
+        decision === "approved"
+          ? "Inspection approved successfully."
+          : "Inspection rejected. Review notes recorded.",
+      );
+      // Refresh the inspection detail so the status pill reflects any
+      // downstream status change, and invalidate the review queue so
+      // the supervisor queue count updates on the next visit.
+      qc.invalidateQueries({ queryKey: ["inspection-detail", inspectionId] });
+      qc.invalidateQueries({ queryKey: ["supervisor-review-queue"] });
+      qc.invalidateQueries({ queryKey: ["analytics-approval-rate"] });
+      qc.invalidateQueries({ queryKey: ["analytics-approval-trend"] });
+      // Clear notes after a successful submission
+      setNotes("");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message ?? "Failed to submit review. Please try again.");
+    },
+  });
+
+  const isPending = reviewMutation.isPending;
 
   return (
     <SectionCard title="Supervisor Decision" icon={MessageSquare}>
@@ -939,6 +992,7 @@ function ApprovalWorkflowSection({ inspectionId }: { inspectionId: string }) {
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Add comments, observations, or justification for your decision…"
             className="min-h-[80px] resize-y text-sm"
+            disabled={isPending}
           />
         </div>
 
@@ -949,9 +1003,12 @@ function ApprovalWorkflowSection({ inspectionId }: { inspectionId: string }) {
 
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button className="w-full justify-start gap-2 bg-emerald-600 hover:bg-emerald-700 text-white">
+              <Button
+                className="w-full justify-start gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={isPending}
+              >
                 <CheckCircle2 className="h-4 w-4" />
-                Approve AI-Generated Report
+                {isPending ? "Submitting…" : "Approve AI-Generated Report"}
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
@@ -963,17 +1020,27 @@ function ApprovalWorkflowSection({ inspectionId }: { inspectionId: string }) {
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction className="bg-emerald-600 hover:bg-emerald-700">Confirm Approval</AlertDialogAction>
+                <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                  disabled={isPending}
+                  onClick={() => reviewMutation.mutate({ decision: "approved" })}
+                >
+                  Confirm Approval
+                </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
 
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive" className="w-full justify-start gap-2">
+              <Button
+                variant="destructive"
+                className="w-full justify-start gap-2"
+                disabled={isPending}
+              >
                 <XCircle className="h-4 w-4" />
-                Reject Report
+                {isPending ? "Submitting…" : "Reject Report"}
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
@@ -985,8 +1052,14 @@ function ApprovalWorkflowSection({ inspectionId }: { inspectionId: string }) {
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction className="bg-destructive hover:bg-destructive/90">Confirm Rejection</AlertDialogAction>
+                <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive hover:bg-destructive/90"
+                  disabled={isPending}
+                  onClick={() => reviewMutation.mutate({ decision: "rejected" })}
+                >
+                  Confirm Rejection
+                </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>

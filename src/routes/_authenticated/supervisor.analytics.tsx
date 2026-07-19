@@ -5,7 +5,6 @@ import {
   BarChart3,
   TrendingUp,
   Users,
-  Brain,
   Clock,
   CheckCircle2,
   ShieldAlert,
@@ -41,6 +40,10 @@ import {
   getDeptPerformance,
   getInspectorProductivity,
   getTurnaroundTrend,
+  getApprovalRate,
+  getApprovalTrend,
+  getComplianceRiskIntelligence,
+  getSupervisorReviewActivity,
 } from "@/lib/supervisor.functions";
 
 export const Route = createFileRoute("/_authenticated/supervisor/analytics")({
@@ -142,13 +145,36 @@ function AnalyticsContent({ period }: { period: AnalyticsPeriod }) {
     refetchOnWindowFocus: false,
   });
 
-  /* Derived: does the data contain at least one non-zero point? */
-  const hasTrends     = (trends?.length     ?? 0) > 0 && (trends?.some((t) => t.total > 0) ?? false);
-  const hasRisk       = (riskDist?.length   ?? 0) > 0;
-  const hasDept       = (deptPerf?.length   ?? 0) > 0;
-  const hasInspector  = (inspectorProd?.length ?? 0) > 0;
-  const hasTurnaround = (turnaround?.length ?? 0) > 0;
+  /* 7. Approval Rate — KPI card (calls get_approval_rate RPC) */
+  const { data: approvalRate, isLoading: approvalRateLoading } = useQuery({
+    queryKey: ["analytics-approval-rate", period],
+    queryFn:  () => getApprovalRate(period),
+    refetchOnWindowFocus: false,
+  });
 
+  /* 8. Approval Trend — BarChart (calls get_approval_trend RPC) */
+  const { data: approvalTrend, isLoading: approvalTrendLoading } = useQuery({
+    queryKey: ["analytics-approval-trend", period],
+    queryFn:  () => getApprovalTrend(period),
+    refetchOnWindowFocus: false,
+  });
+
+  /* 9. Compliance Risk Intelligence */
+const { data: complianceRisk, isLoading: complianceRiskLoading } = useQuery({
+  queryKey: ["analytics-compliance-risk-intelligence"],
+  queryFn: getComplianceRiskIntelligence,
+  refetchOnWindowFocus: false,
+});
+
+  /* Derived: does the data contain at least one non-zero point? */
+  const hasTrends          = (trends?.length     ?? 0) > 0 && (trends?.some((t) => t.total > 0) ?? false);
+  const hasRisk            = (riskDist?.length   ?? 0) > 0;
+  const hasDept            = (deptPerf?.length   ?? 0) > 0;
+  const hasInspector       = (inspectorProd?.length ?? 0) > 0;
+  const hasTurnaround      = (turnaround?.length ?? 0) > 0;
+  const hasApprovalTrend   = (approvalTrend?.length ?? 0) > 0 &&
+                              (approvalTrend?.some((t) => t.approved + t.rejected > 0) ?? false);
+  
   return (
     <>
       {/* ── Row 1: Summary KPI cards ── */}
@@ -178,25 +204,38 @@ function AnalyticsContent({ period }: { period: AnalyticsPeriod }) {
           placeholder={!summaryLoading ? "No completed data" : undefined}
         />
 
-        {/* Approval Rate — no supervisor_decision column in schema */}
+        {/* Approval Rate — from get_approval_rate() RPC via supervisor_reviews table */}
         <SummaryCard
           label="Approval Rate"
           icon={CheckCircle2}
           accent="ok"
-          loading={false}
-          value={undefined}
-          placeholder="No decision data"
+          loading={approvalRateLoading}
+          value={
+            !approvalRateLoading && approvalRate?.approvalRate !== null && approvalRate?.approvalRate !== undefined
+              ? `${approvalRate.approvalRate}%`
+              : undefined
+          }
+          sub={
+            !approvalRateLoading && approvalRate && approvalRate.total > 0
+              ? `${approvalRate.approved} approved / ${approvalRate.rejected} rejected`
+              : undefined
+          }
+          placeholder={!approvalRateLoading ? "No review decisions yet" : undefined}
         />
 
-        {/* AI Acceptance Rate — AI pipeline not yet connected */}
-        <SummaryCard
-          label="AI Acceptance Rate"
-          icon={Brain}
-          accent="primary"
-          loading={false}
-          value={undefined}
-          placeholder="Awaiting AI review data"
-        />
+        {/* Compliance Risk Intelligence */}
+<SummaryCard
+  label="Critical Establishments"
+  icon={ShieldAlert}
+  accent="warn"
+  loading={complianceRiskLoading}
+  value={
+    !complianceRiskLoading && complianceRisk
+      ? String(complianceRisk.criticalEstablishments)
+      : undefined
+  }
+  sub="High priority risk cases"
+/>
       </div>
 
       {/* ── Row 2: Inspection Trends + Risk Distribution ── */}
@@ -356,7 +395,7 @@ function AnalyticsContent({ period }: { period: AnalyticsPeriod }) {
         </ChartPanel>
       </div>
 
-      {/* ── Row 4: Turnaround + Approval vs Rejection + AI Acceptance ── */}
+{/* ── Row 4: Turnaround + Approval vs Rejection + Compliance Risk Intelligence ── */}
       <div className="grid gap-4 xl:grid-cols-3">
 
         {/* Report Turnaround — AreaChart from getTurnaroundTrend */}
@@ -406,45 +445,205 @@ function AnalyticsContent({ period }: { period: AnalyticsPeriod }) {
           </ResponsiveContainer>
         </ChartPanel>
 
-        {/* Approval vs Rejection — no supervisor_decision column in schema */}
-        <PlaceholderPanel
+        {/* Approval vs Rejection — live data from get_approval_trend() RPC */}
+        <ChartPanel
           title="Approval vs Rejection"
           icon={CheckCircle2}
-          message="No supervisor review decisions available yet."
-          detail="This chart will render when supervisor approval/rejection data is added to the schema."
+          description="Supervisor review decisions over time."
+          loading={approvalTrendLoading}
+          hasData={hasApprovalTrend}
+          emptyDetail="No review decisions recorded in this period."
           height={200}
-        />
+        >
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={approvalTrend} margin={{ top: 10, right: 16, left: -16, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
+              <XAxis
+                dataKey="label"
+                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                allowDecimals={false}
+                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <Tooltip contentStyle={TOOLTIP_STYLE} />
+              <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+              <Bar dataKey="approved" fill="#22c55e" radius={[4, 4, 0, 0]} name="Approved" />
+              <Bar dataKey="rejected" fill="#ef4444" radius={[4, 4, 0, 0]} name="Rejected" />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartPanel>
 
-        {/* AI Recommendation Acceptance — AI pipeline not yet connected */}
-        <PlaceholderPanel
-          title="AI Recommendation Acceptance"
-          icon={Brain}
-          message="Awaiting AI review data."
-          detail="This section will be connected to the AI agent pipeline when it is ready."
-          height={200}
-          badge="AI Pending"
-        />
+        {/* AI Recommendation Acceptance — live data from get_ai_acceptance_trend() RPC */}
+        {/* Compliance Risk Intelligence */}
+<ChartPanel
+  title="Compliance Risk Intelligence"
+  icon={ShieldAlert}
+  description="AI-driven identification of establishments requiring priority attention."
+  loading={complianceRiskLoading}
+  hasData={!!complianceRisk}
+  emptyDetail="No compliance intelligence available."
+  height={200}
+>
+  <div className="grid grid-cols-2 gap-3">
+
+    <div className="rounded-lg border p-3">
+      <p className="text-[11px] text-muted-foreground">
+        Critical Establishments
+      </p>
+      <p className="mt-2 text-2xl font-semibold">
+        {complianceRisk?.criticalEstablishments ?? 0}
+      </p>
+    </div>
+
+    <div className="rounded-lg border p-3">
+      <p className="text-[11px] text-muted-foreground">
+        High-Risk Pending Actions
+      </p>
+      <p className="mt-2 text-2xl font-semibold">
+        {complianceRisk?.highRiskPendingActions ?? 0}
+      </p>
+    </div>
+
+    <div className="rounded-lg border p-3">
+      <p className="text-[11px] text-muted-foreground">
+        Repeat Violators Identified
+      </p>
+      <p className="mt-2 text-2xl font-semibold">
+        {complianceRisk?.repeatViolators ?? 0}
+      </p>
+    </div>
+
+    <div className="rounded-lg border p-3">
+      <p className="text-[11px] text-muted-foreground">
+        Escalations Recommended
+      </p>
+      <p className="mt-2 text-2xl font-semibold">
+        {complianceRisk?.escalationsRecommended ?? 0}
+      </p>
+    </div>
+
+  </div>
+</ChartPanel>
       </div>
 
       {/* ── Row 5: Review Activity Timeline ── */}
-      <Card className="border-border/70 bg-card shadow-sm">
-        <CardHeader className="flex-row items-center gap-2 space-y-0 border-b border-border/60 py-3">
-          <Activity className="h-4 w-4 shrink-0 text-primary" />
-          <CardTitle className="text-sm font-semibold text-foreground">
-            Review Activity Timeline
-          </CardTitle>
+      <ActivityTimeline />
+    </>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Review Activity Timeline
+   Source: supervisor_reviews table (not audit_logs).
+   supervisor_reviews IS the approval audit trail — it has the
+   decision, remarks, timestamp, and joins to establishment name.
+   audit_logs has no trigger on supervisor_reviews so it would
+   always be empty for this use-case.
+───────────────────────────────────────────────────────────── */
+
+function ActivityTimeline() {
+  const { data: activity, isLoading } = useQuery({
+    queryKey: ["analytics-activity-timeline"],
+    queryFn:  () => getSupervisorReviewActivity(12),
+    refetchOnWindowFocus: false,
+  });
+
+  const hasActivity = (activity?.length ?? 0) > 0;
+
+  return (
+    <Card className="border-border/70 bg-card shadow-sm">
+      <CardHeader className="flex-row items-center gap-2 space-y-0 border-b border-border/60 py-3">
+        <Activity className="h-4 w-4 shrink-0 text-primary" />
+        <CardTitle className="text-sm font-semibold text-foreground">
+          Review Activity Timeline
+        </CardTitle>
+        {!isLoading && !hasActivity && (
           <Badge variant="secondary" className="ml-auto text-[10px]">No data</Badge>
-        </CardHeader>
-        <CardContent className="p-0">
+        )}
+      </CardHeader>
+      <CardContent className="p-0">
+        {isLoading ? (
+          <div className="space-y-2 p-4">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full rounded" />
+            ))}
+          </div>
+        ) : hasActivity ? (
+          <ul className="divide-y divide-border/50">
+            {activity!.map((entry) => (
+              <li key={entry.id} className="flex items-start gap-3 px-4 py-3">
+                {/* Decision icon — green for approved, red for rejected */}
+                <div className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full ${
+                  entry.decision === "approved"
+                    ? "bg-emerald-500/10"
+                    : "bg-destructive/10"
+                }`}>
+                  <Activity className={`h-3 w-3 ${
+                    entry.decision === "approved"
+                      ? "text-emerald-600"
+                      : "text-destructive"
+                  }`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  {/* Action + decision badge */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-foreground capitalize">
+                      {entry.decision === "approved" ? "Approved" : "Rejected"}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] px-1.5 py-0 ${
+                        entry.decision === "approved"
+                          ? "border-emerald-500/40 text-emerald-700 dark:text-emerald-400"
+                          : "border-destructive/40 text-destructive"
+                      }`}
+                    >
+                      {entry.decision}
+                    </Badge>
+                  </div>
+                  {/* Establishment name + inspection ID */}
+                  <p className="mt-0.5 text-[11px] font-medium text-foreground truncate">
+                    {entry.establishmentName}
+                    <span className="ml-1.5 font-mono font-normal text-muted-foreground">
+                      #{entry.inspectionId.slice(0, 8)}
+                    </span>
+                  </p>
+                  {/* Supervisor name */}
+                  <p className="mt-0.5 text-[11px] text-muted-foreground truncate">
+                    By {entry.supervisorName}
+                  </p>
+                  {/* Remarks if present */}
+                  {entry.remarks && (
+                    <p className="mt-0.5 text-[11px] text-muted-foreground/80 truncate italic">
+                      "{entry.remarks}"
+                    </p>
+                  )}
+                  {/* Timestamp */}
+                  <p className="mt-0.5 text-[10px] text-muted-foreground/60">
+                    {new Date(entry.reviewedAt).toLocaleString("en-IN", {
+                      day: "2-digit", month: "short", year: "numeric",
+                      hour: "2-digit", minute: "2-digit",
+                    })}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
           <EmptyState
             icon={Activity}
-            title="No supervisor activity available."
-            detail="Audit log access is restricted to admins. Supervisor review history will appear here when activity tracking is enabled for supervisors."
+            title="No review decisions recorded yet."
+            detail="Approved and rejected inspection reviews will appear here after you submit decisions."
             height={120}
           />
-        </CardContent>
-      </Card>
-    </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -560,39 +759,6 @@ function ChartPanel({
         ) : (
           <EmptyState icon={Icon} title={title} detail={emptyDetail} height={height} />
         )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function PlaceholderPanel({
-  title,
-  icon: Icon,
-  message,
-  detail,
-  height,
-  badge,
-}: {
-  title: string;
-  icon: React.ComponentType<{ className?: string }>;
-  message: string;
-  detail: string;
-  height: number;
-  badge?: string;
-}) {
-  return (
-    <Card className="border-border/70 bg-card shadow-sm">
-      <CardHeader className="flex-row items-center gap-2 space-y-0 border-b border-border/60 py-3">
-        <Icon className="h-4 w-4 shrink-0 text-primary" />
-        <div className="min-w-0 flex-1">
-          <CardTitle className="truncate text-sm font-semibold text-foreground">{title}</CardTitle>
-        </div>
-        <Badge variant="secondary" className="shrink-0 text-[10px]">
-          {badge ?? "Unavailable"}
-        </Badge>
-      </CardHeader>
-      <CardContent className="p-0">
-        <EmptyState icon={Icon} title={message} detail={detail} height={height} />
       </CardContent>
     </Card>
   );

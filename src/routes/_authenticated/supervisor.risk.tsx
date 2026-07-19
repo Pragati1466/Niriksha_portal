@@ -13,8 +13,15 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  LineChart, Line, ReferenceLine,
+  ScatterChart, Scatter, ZAxis,
+} from "recharts";
+import {
   getRiskKpis, getRiskPriorityQueue, getDepartments,
   getLatestInspectionForEstablishment,
+  getRiskTrend, getDepartmentRiskComparison, getHeatmapData,
+  type RiskTrendPoint, type DepartmentRiskPoint, type HeatmapData,
 } from "@/lib/supervisor.functions";
 import { getRiskScore, buildAIPayload, type RiskScoreResponse } from "@/lib/ai.functions";
 
@@ -101,10 +108,10 @@ function RiskMonitoringPage() {
         ))}
       </div>
 
-      {/* Main content */}
-      <div className="grid gap-5 xl:grid-cols-[1fr_340px]">
+      {/* Main content — left/right columns both start at top, no vertical stretching */}
+      <div className="grid gap-4 xl:grid-cols-[1fr_320px] xl:items-start">
         <RiskHeatmapCard />
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           <RiskDistributionCard distribution={distribution} counts={kpis} loading={kpisLoading} />
           <PriorityQueueCard rows={priorityQueue} loading={queueLoading} />
         </div>
@@ -150,50 +157,279 @@ function RiskKpiCard({ label, accent, count, loading }: { label: string; accent:
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Risk Heatmap (placeholder — geo data not yet available)
+   Risk Heatmap — geographic risk scatter plot
 ───────────────────────────────────────────────────────────── */
 
+const RISK_LEVEL_COLOR: Record<string, string> = {
+  Critical: "#ef4444",
+  High:     "#f97316",
+  Medium:   "#f59e0b",
+  Low:      "#22c55e",
+};
+
+const RISK_LEVEL_BG: Record<string, string> = {
+  Critical: "#ef444418",
+  High:     "#f9731618",
+  Medium:   "#f59e0b18",
+  Low:      "#22c55e18",
+};
+
+type HeatmapPoint = NonNullable<HeatmapData["points"]>[number];
+
+/** Custom scatter dot — renders a circle with a thin ring for depth. */
+function RiskDot(props: {
+  cx?: number; cy?: number;
+  payload?: HeatmapPoint;
+}) {
+  const { cx = 0, cy = 0, payload } = props;
+  if (!payload) return null;
+  const color = RISK_LEVEL_COLOR[payload.riskLevel] ?? "#94a3b8";
+  return (
+    <g>
+      {/* Outer glow ring */}
+      <circle cx={cx} cy={cy} r={10} fill={color} fillOpacity={0.15} />
+      {/* Solid dot */}
+      <circle cx={cx} cy={cy} r={6} fill={color} fillOpacity={0.9} stroke="white" strokeWidth={1.2} strokeOpacity={0.6} />
+    </g>
+  );
+}
+
 function RiskHeatmapCard() {
+  const { data: heatmap, isLoading } = useQuery<HeatmapData>({
+    queryKey: ["supervisor-risk-heatmap"],
+    queryFn:  getHeatmapData,
+    refetchOnWindowFocus: false,
+  });
+
+  const noData    = !isLoading && (!heatmap || heatmap.totalEstablishments === 0);
+  const noGeoData = !isLoading && heatmap && heatmap.totalEstablishments > 0 && !heatmap.hasGeoData;
+  const hasPoints = !isLoading && heatmap && heatmap.hasGeoData && heatmap.points.length > 0;
+
   return (
     <Card className="border-border/70 bg-card shadow-sm">
-      <CardHeader className="flex-row items-center justify-between gap-2 space-y-0 border-b border-border/60 py-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <MapPin className="h-4 w-4 shrink-0 text-primary" />
+      {/* ── Header ── */}
+      <CardHeader className="flex-row items-start justify-between gap-3 space-y-0 border-b border-border/60 px-5 py-4">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/10">
+            <MapPin className="h-4 w-4 text-primary" />
+          </div>
           <div className="min-w-0">
             <CardTitle className="text-sm font-semibold text-foreground">Risk Heatmap</CardTitle>
-            <p className="text-[11px] text-muted-foreground">Geographic distribution of inspection risk</p>
+            <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground max-w-xs">
+              Geographic concentration of inspection risks across supervised establishments
+            </p>
           </div>
         </div>
-        <Badge variant="secondary" className="shrink-0 text-[10px]">Awaiting geo data</Badge>
+        {!isLoading && heatmap && (
+          <Badge variant="secondary" className="shrink-0 mt-0.5 text-[10px] font-medium">
+            {heatmap.totalEstablishments} establishment{heatmap.totalEstablishments !== 1 ? "s" : ""}
+          </Badge>
+        )}
       </CardHeader>
+
       <CardContent className="p-0">
-        <div className="relative flex flex-col items-center justify-center gap-3 bg-muted/20 px-8 text-center" style={{ height: 420 }}>
-          <div className="pointer-events-none absolute inset-0 opacity-[0.04]"
-            style={{ backgroundImage: "linear-gradient(var(--color-foreground) 1px, transparent 1px), linear-gradient(90deg, var(--color-foreground) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
-          <div className="relative z-10 flex flex-col items-center gap-3">
-            <div className="grid h-16 w-16 place-items-center rounded-full border-2 border-dashed border-border/60 bg-card">
-              <MapPin className="h-7 w-7 text-muted-foreground/60" />
+        {/* ── Loading skeleton ── */}
+        {isLoading && (
+          <div className="space-y-3 p-4" style={{ height: 360 }}>
+            <Skeleton className="h-8 w-full rounded-lg" />
+            <Skeleton className="h-[290px] w-full rounded-lg" />
+          </div>
+        )}
+
+        {/* ── No establishments ── */}
+        {noData && (
+          <div className="flex flex-col items-center justify-center gap-3 px-8 py-10 text-center" style={{ height: 360 }}>
+            <div className="grid h-12 w-12 place-items-center rounded-full border-2 border-dashed border-border/60 bg-muted/30">
+              <MapPin className="h-5 w-5 text-muted-foreground/50" />
             </div>
             <div>
-              <p className="text-sm font-medium text-foreground">Geographic Heatmap</p>
-              <p className="mt-1 max-w-[320px] text-xs text-muted-foreground">
-                Risk concentration by location will render here. Requires latitude/longitude from
-                establishments and Risk Prioritization Agent output.
+              <p className="text-sm font-medium text-foreground">No establishments found</p>
+              <p className="mt-1 max-w-[260px] text-xs text-muted-foreground">
+                No establishments are associated with your inspections yet.
               </p>
             </div>
-            <div className="flex items-center gap-3 rounded-md border border-border/60 bg-card px-4 py-2">
-              {(["Critical","High","Medium","Low"] as string[]).map((lvl, i) => {
-                const dots = ["bg-destructive","bg-orange-500","bg-amber-500","bg-emerald-500"];
-                return (
-                  <div key={lvl} className="flex items-center gap-1.5">
-                    <span className={`h-2.5 w-2.5 rounded-full ${dots[i]}`} />
-                    <span className="text-[11px] text-muted-foreground">{lvl}</span>
-                  </div>
-                );
-              })}
+          </div>
+        )}
+
+        {/* ── No coordinates ── */}
+        {noGeoData && (
+          <div className="flex flex-col items-center justify-center gap-4 px-8 py-10 text-center" style={{ height: 360 }}>
+            <div className="grid h-12 w-12 place-items-center rounded-full border-2 border-dashed border-border/60 bg-muted/30">
+              <MapPin className="h-5 w-5 text-muted-foreground/50" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">Location intelligence unavailable</p>
+              <p className="mt-1 max-w-[300px] text-xs text-muted-foreground">
+                Establishment coordinates not recorded — latitude/longitude data is required to render
+                a geographic risk plot.{" "}
+                <span className="font-medium text-foreground">
+                  {heatmap!.totalEstablishments} establishment{heatmap!.totalEstablishments !== 1 ? "s" : ""}
+                </span>{" "}
+                found without coordinates.
+              </p>
+            </div>
+            {/* Legend still shown so the UI is not empty */}
+            <div className="flex flex-wrap justify-center gap-2 pt-1">
+              {(["Critical","High","Medium","Low"] as const).map((lvl) => (
+                <span
+                  key={lvl}
+                  className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium"
+                  style={{
+                    borderColor: RISK_LEVEL_COLOR[lvl] + "50",
+                    background:  RISK_LEVEL_BG[lvl],
+                    color:       RISK_LEVEL_COLOR[lvl],
+                  }}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: RISK_LEVEL_COLOR[lvl] }} />
+                  {lvl}
+                </span>
+              ))}
             </div>
           </div>
-        </div>
+        )}
+
+        {/* ── Geo data available — full chart ── */}
+        {hasPoints && (
+          <div>
+            {/* Legend + total */}
+            <div className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-muted/10 px-4 py-2">
+              {(["Critical","High","Medium","Low"] as const).map((lvl) => (
+                <span
+                  key={lvl}
+                  className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-medium"
+                  style={{
+                    borderColor: RISK_LEVEL_COLOR[lvl] + "50",
+                    background:  RISK_LEVEL_BG[lvl],
+                    color:       RISK_LEVEL_COLOR[lvl],
+                  }}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: RISK_LEVEL_COLOR[lvl] }} />
+                  {lvl}
+                </span>
+              ))}
+              <span className="ml-auto text-[10px] text-muted-foreground">
+                {heatmap!.points.length} of {heatmap!.totalEstablishments} plotted
+              </span>
+            </div>
+
+            {/* Scatter plot */}
+            <div className="px-2 pt-2 pb-1" style={{ height: 300 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <ScatterChart margin={{ top: 10, right: 28, bottom: 28, left: 10 }}>
+                  {/* Subtle dot-grid background */}
+                  <CartesianGrid
+                    strokeDasharray="2 4"
+                    stroke="var(--color-border)"
+                    strokeOpacity={0.35}
+                    horizontal
+                    vertical
+                  />
+                  <XAxis
+                    type="number"
+                    dataKey="longitude"
+                    name="Longitude"
+                    domain={["auto", "auto"]}
+                    tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
+                    tickLine={false}
+                    axisLine={{ stroke: "var(--color-border)", strokeOpacity: 0.4 }}
+                    label={{
+                      value: "Longitude",
+                      position: "insideBottom",
+                      offset: -16,
+                      style: {
+                        fontSize: 9,
+                        fill: "hsl(var(--muted-foreground))",
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                      },
+                    }}
+                    tickFormatter={(v: number) => v.toFixed(2)}
+                    tickCount={5}
+                  />
+                  <YAxis
+                    type="number"
+                    dataKey="latitude"
+                    name="Latitude"
+                    domain={["auto", "auto"]}
+                    tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
+                    tickLine={false}
+                    axisLine={{ stroke: "var(--color-border)", strokeOpacity: 0.4 }}
+                    width={44}
+                    label={{
+                      value: "Latitude",
+                      angle: -90,
+                      position: "insideLeft",
+                      offset: 12,
+                      style: {
+                        fontSize: 9,
+                        fill: "hsl(var(--muted-foreground))",
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                      },
+                    }}
+                    tickFormatter={(v: number) => v.toFixed(2)}
+                    tickCount={5}
+                  />
+                  <ZAxis type="number" range={[1, 1]} />
+                  <Tooltip
+                    cursor={false}
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null;
+                      const d = payload[0].payload as HeatmapPoint;
+                      const color = RISK_LEVEL_COLOR[d.riskLevel] ?? "#94a3b8";
+                      return (
+                        <div
+                          className="rounded-lg border bg-card shadow-lg text-[11px]"
+                          style={{ borderColor: color + "40", minWidth: 200, maxWidth: 260 }}
+                        >
+                          {/* Coloured accent bar at top */}
+                          <div className="h-1 w-full rounded-t-lg" style={{ background: color }} />
+                          <div className="space-y-1.5 px-3 py-2.5">
+                            <p className="font-semibold text-foreground leading-snug line-clamp-2">
+                              {d.establishmentName}
+                            </p>
+                            {d.address && (
+                              <p className="text-muted-foreground leading-snug line-clamp-2">{d.address}</p>
+                            )}
+                            <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+                              <span
+                                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase"
+                                style={{ background: color + "20", color }}
+                              >
+                                <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
+                                {d.riskLevel}
+                              </span>
+                              <span className="ml-auto text-xs tabular-nums font-bold text-foreground">
+                                {d.riskScore}
+                                <span className="ml-0.5 text-[10px] font-normal text-muted-foreground">/100</span>
+                              </span>
+                            </div>
+                            <p className="tabular-nums text-muted-foreground text-[10px] font-mono">
+                              {d.latitude.toFixed(5)}°N · {d.longitude.toFixed(5)}°E
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    }}
+                  />
+                  {/* One series per risk level so each dot gets the right colour */}
+                  {(["Critical","High","Medium","Low"] as const).map((lvl) => {
+                    const pts = heatmap!.points.filter((p) => p.riskLevel === lvl);
+                    if (pts.length === 0) return null;
+                    return (
+                      <Scatter
+                        key={lvl}
+                        name={lvl}
+                        data={pts}
+                        shape={<RiskDot />}
+                      />
+                    );
+                  })}
+                </ScatterChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -224,31 +460,27 @@ function RiskDistributionCard({
 
   return (
     <Card className="border-border/70 bg-card shadow-sm">
-      <CardHeader className="flex-row items-center gap-2 space-y-0 border-b border-border/60 py-3">
+      <CardHeader className="flex-row items-center gap-2 space-y-0 border-b border-border/60 px-4 py-3">
         <BarChart3 className="h-4 w-4 shrink-0 text-primary" />
         <CardTitle className="text-sm font-semibold text-foreground">Risk Distribution</CardTitle>
       </CardHeader>
-      <CardContent className="p-4 space-y-3">
+      <CardContent className="px-4 py-3 space-y-2.5">
         {levels.map((l) => (
           <div key={l.label}>
-            <div className="mb-1 flex items-center justify-between text-xs">
+            <div className="mb-1 flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <span className={`h-2 w-2 rounded-full ${dotColors[l.accent]}`} />
-                <span className="text-foreground">{l.label}</span>
+                <span className="text-xs text-foreground">{l.label}</span>
               </div>
-              {loading ? (
-                <div className="flex gap-2"><Skeleton className="h-4 w-6" /><Skeleton className="h-4 w-8" /></div>
-              ) : (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <span className="tabular-nums">{counts?.[l.accent] ?? 0}</span>
-                  <span className="tabular-nums text-[11px]">{distribution[l.accent]}%</span>
-                </div>
-              )}
+              {loading
+                ? <Skeleton className="h-3.5 w-7" />
+                : <span className="tabular-nums text-[11px] text-muted-foreground">{distribution[l.accent]}%</span>
+              }
             </div>
-            <div className="h-2 w-full rounded-full bg-muted/60">
+            <div className="h-1.5 w-full rounded-full bg-muted/60">
               {!loading && (
                 <div
-                  className={`h-2 rounded-full ${l.barColor} transition-all duration-500`}
+                  className={`h-1.5 rounded-full ${l.barColor} transition-all duration-500`}
                   style={{ width: `${distribution[l.accent]}%` }}
                 />
               )}
@@ -306,6 +538,7 @@ function PriorityQueueRow({
 
   const [aiResult, setAiResult] = useState<RiskScoreResponse | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [aiExpanded, setAiExpanded] = useState(false);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -326,6 +559,7 @@ function PriorityQueueRow({
       if (mountedRef.current) {
         setFetchError(null);
         setAiResult(data);
+        setAiExpanded(false);
       }
     },
     onError: (err) => {
@@ -342,7 +576,7 @@ function PriorityQueueRow({
   return (
     <div className="border-b border-border/60 last:border-0">
       {/* Main row — always visible */}
-      <div className="grid grid-cols-[minmax(0,1fr)_80px_56px_auto] gap-2 items-center px-4 py-2.5 text-sm hover:bg-accent/40">
+      <div className="grid grid-cols-[minmax(0,1fr)_76px_52px_auto] gap-2 items-center px-4 py-2 text-sm hover:bg-accent/40">
         <span className="truncate text-foreground font-medium">{row.establishmentName}</span>
         <Badge
           variant="secondary"
@@ -364,29 +598,57 @@ function PriorityQueueRow({
         </Button>
       </div>
 
-      {/* Inline AI result — shown only when we have data or an error */}
+      {/* Inline AI result panel */}
       {(mutation.isPending || aiResult || mutation.isError) && (
-        <div className="mx-4 mb-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2.5 text-xs space-y-2">
+        <div className="mx-3 mb-2.5 rounded-md border border-border/70 bg-muted/20 text-xs overflow-hidden">
           {mutation.isPending ? (
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 p-3">
               <Skeleton className="h-3 w-full" />
               <Skeleton className="h-3 w-4/5" />
+              <Skeleton className="h-3 w-3/5" />
             </div>
           ) : mutation.isError ? (
-            <p className="text-destructive">{fetchError ?? (mutation.error as Error).message}</p>
+            <p className="p-3 text-destructive">{fetchError ?? (mutation.error as Error).message}</p>
           ) : aiResult ? (
             <>
-              <div className="flex items-center gap-3">
-                <span className="text-muted-foreground">AI Score:</span>
-                <span className="font-semibold tabular-nums text-foreground">{aiResult.risk_score}</span>
-                <Badge
-                  variant="secondary"
-                  className={`text-[10px] uppercase ${levelColor[aiResult.risk_level] ?? "bg-muted text-muted-foreground"}`}
-                >
-                  {aiResult.risk_level}
-                </Badge>
+              {/* Coloured top bar matching risk level */}
+              <div
+                className="h-0.5 w-full"
+                style={{ background: RISK_LEVEL_COLOR[aiResult.risk_level] ?? "#94a3b8" }}
+              />
+              <div className="divide-y divide-border/50">
+                {/* Header row: establishment + scores */}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 bg-muted/30">
+                  <span className="font-semibold text-foreground">{row.establishmentName}</span>
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <Badge
+                      variant="secondary"
+                      className={`text-[10px] uppercase ${levelColor[aiResult.risk_level] ?? "bg-muted text-muted-foreground"}`}
+                    >
+                      {aiResult.risk_level}
+                    </Badge>
+                    <span className="tabular-nums font-bold text-foreground">{aiResult.risk_score}</span>
+                    <span className="text-muted-foreground text-[10px]">/100</span>
+                    {row.riskScore !== aiResult.risk_score && (
+                      <span className="text-[10px] text-muted-foreground ml-1">
+                        (DB: {row.riskScore})
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {/* Explanation — clamped to 3 lines, expandable */}
+                <div className="px-3 py-2">
+                  <p className={`text-muted-foreground leading-relaxed whitespace-pre-wrap ${aiExpanded ? "" : "line-clamp-3"}`}>
+                    {aiResult.explanation}
+                  </p>
+                  <button
+                    onClick={() => setAiExpanded((v) => !v)}
+                    className="mt-1 text-[10px] font-medium text-primary hover:underline focus:outline-none"
+                  >
+                    {aiExpanded ? "Show less ↑" : "View full analysis ↓"}
+                  </button>
+                </div>
               </div>
-              <p className="text-muted-foreground leading-relaxed">{aiResult.explanation}</p>
             </>
           ) : null}
         </div>
@@ -404,7 +666,7 @@ function PriorityQueueCard({
 }) {
   return (
     <Card className="border-border/70 bg-card shadow-sm">
-      <CardHeader className="flex-row items-center gap-2 space-y-0 border-b border-border/60 py-3">
+      <CardHeader className="flex-row items-center gap-2 space-y-0 border-b border-border/60 px-4 py-3">
         <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" />
         <CardTitle className="text-sm font-semibold text-foreground">Priority Inspections</CardTitle>
         {!loading && rows.length > 0 && (
@@ -414,32 +676,120 @@ function PriorityQueueCard({
         )}
       </CardHeader>
       <CardContent className="p-0">
-        <div className="grid grid-cols-[minmax(0,1fr)_80px_56px_auto] gap-2 border-b border-border/60 bg-muted/40 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {/* Sticky column header */}
+        <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_76px_52px_auto] gap-2 border-b border-border/60 bg-muted/50 px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           <span>Establishment</span><span>Risk</span><span className="text-right">Score</span><span />
         </div>
-        {loading && (
-          <div className="divide-y divide-border/60">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="grid grid-cols-[minmax(0,1fr)_80px_56px_auto] gap-2 px-4 py-2.5">
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-5 w-14 rounded-full" />
-                <Skeleton className="ml-auto h-4 w-8" />
-                <Skeleton className="h-7 w-16 rounded" />
-              </div>
-            ))}
+        {/* Scrollable rows area */}
+        <div className="overflow-y-auto" style={{ maxHeight: 400 }}>
+          {loading && (
+            <div className="divide-y divide-border/60">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="grid grid-cols-[minmax(0,1fr)_76px_52px_auto] gap-2 px-4 py-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-5 w-14 rounded-full" />
+                  <Skeleton className="ml-auto h-4 w-8" />
+                  <Skeleton className="h-7 w-16 rounded" />
+                </div>
+              ))}
+            </div>
+          )}
+          {!loading && rows.length === 0 && (
+            <div className="flex flex-col items-center justify-center gap-2 px-4 py-8 text-center">
+              <Building2 className="h-6 w-6 text-muted-foreground/50" />
+              <p className="text-xs text-muted-foreground">No high-priority establishments found.</p>
+            </div>
+          )}
+          {!loading && rows.length > 0 && rows.map((r) => (
+            <PriorityQueueRow key={r.id} row={r} />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Risk Trend Over Time — real data via getRiskTrend()
+───────────────────────────────────────────────────────────── */
+
+function RiskTrendCard() {
+  const { data: trend = [], isLoading } = useQuery<RiskTrendPoint[]>({
+    queryKey: ["supervisor-risk-trend"],
+    queryFn:  getRiskTrend,
+    refetchOnWindowFocus: false,
+  });
+
+  const noData = !isLoading && trend.length === 0;
+
+  return (
+    <Card className="border-border/70 bg-card shadow-sm">
+      <CardHeader className="flex-row items-center gap-2 space-y-0 border-b border-border/60 py-3">
+        <TrendingUp className="h-4 w-4 shrink-0 text-primary" />
+        <div className="min-w-0 flex-1">
+          <CardTitle className="text-sm font-semibold text-foreground">Risk Trend Over Time</CardTitle>
+          <p className="text-[11px] text-muted-foreground">Average risk score per month (completed inspections).</p>
+        </div>
+        {!isLoading && trend.length > 0 && (
+          <Badge variant="secondary" className="shrink-0 text-[10px]">
+            {trend.length} month{trend.length !== 1 ? "s" : ""}
+          </Badge>
+        )}
+      </CardHeader>
+      <CardContent className="p-0">
+        {isLoading && (
+          <div className="flex flex-col gap-2 p-4" style={{ height: 200 }}>
+            <Skeleton className="h-full w-full" />
           </div>
         )}
-        {!loading && rows.length === 0 && (
-          <div className="flex flex-col items-center justify-center gap-2 px-4 py-8 text-center">
-            <Building2 className="h-6 w-6 text-muted-foreground/50" />
-            <p className="text-xs text-muted-foreground">No high-priority establishments found.</p>
+        {noData && (
+          <div className="flex flex-col items-center justify-center gap-2 px-6 py-10 text-center" style={{ height: 200 }}>
+            <TrendingUp className="h-6 w-6 text-muted-foreground/50" />
+            <p className="max-w-[260px] text-xs text-muted-foreground">
+              No completed inspections with risk scores found. Data will appear once inspections are completed.
+            </p>
           </div>
         )}
-        {!loading && rows.length > 0 && (
-          <div>
-            {rows.map((r) => (
-              <PriorityQueueRow key={r.id} row={r} />
-            ))}
+        {!isLoading && trend.length > 0 && (
+          <div className="px-2 py-3" style={{ height: 200 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={trend} margin={{ top: 4, right: 16, bottom: 0, left: -10 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" strokeOpacity={0.5} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  domain={[0, 100]}
+                  tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={28}
+                />
+                <Tooltip
+                  contentStyle={{
+                    fontSize: 11,
+                    background: "var(--color-card)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: 6,
+                  }}
+                  formatter={(value: number) => [value, "Avg Risk Score"]}
+                />
+                {/* Reference lines for risk level thresholds */}
+                <ReferenceLine y={70} stroke="#ef4444" strokeDasharray="3 3" strokeOpacity={0.5} />
+                <ReferenceLine y={40} stroke="#22c55e" strokeDasharray="3 3" strokeOpacity={0.5} />
+                <Line
+                  type="monotone"
+                  dataKey="averageRiskScore"
+                  stroke="var(--color-primary)"
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: "var(--color-primary)" }}
+                  activeDot={{ r: 5 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         )}
       </CardContent>
@@ -448,33 +798,18 @@ function PriorityQueueCard({
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Trend + Comparison — awaiting chart data
+   Department Risk Comparison — real data via getDepartmentRiskComparison()
 ───────────────────────────────────────────────────────────── */
 
-function RiskTrendCard() {
-  return (
-    <Card className="border-border/70 bg-card shadow-sm">
-      <CardHeader className="flex-row items-center gap-2 space-y-0 border-b border-border/60 py-3">
-        <TrendingUp className="h-4 w-4 shrink-0 text-primary" />
-        <div className="min-w-0 flex-1">
-          <CardTitle className="text-sm font-semibold text-foreground">Risk Trend Over Time</CardTitle>
-          <p className="text-[11px] text-muted-foreground">Change in average risk score per period.</p>
-        </div>
-        <Badge variant="secondary" className="shrink-0 text-[10px]">Awaiting data</Badge>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="flex flex-col items-center justify-center gap-2 px-6 py-10 text-center" style={{ height: 180 }}>
-          <TrendingUp className="h-6 w-6 text-muted-foreground/50" />
-          <p className="max-w-[260px] text-xs text-muted-foreground">
-            Risk trend chart will render here once time-series data is available.
-          </p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 function RiskComparisonCard() {
+  const { data: comparison = [], isLoading } = useQuery<DepartmentRiskPoint[]>({
+    queryKey: ["supervisor-risk-comparison"],
+    queryFn:  getDepartmentRiskComparison,
+    refetchOnWindowFocus: false,
+  });
+
+  const noData = !isLoading && comparison.length === 0;
+
   return (
     <Card className="border-border/70 bg-card shadow-sm">
       <CardHeader className="flex-row items-center gap-2 space-y-0 border-b border-border/60 py-3">
@@ -483,15 +818,72 @@ function RiskComparisonCard() {
           <CardTitle className="text-sm font-semibold text-foreground">Department Risk Comparison</CardTitle>
           <p className="text-[11px] text-muted-foreground">Average risk score by regulatory department.</p>
         </div>
-        <Badge variant="secondary" className="shrink-0 text-[10px]">Awaiting data</Badge>
+        {!isLoading && comparison.length > 0 && (
+          <Badge variant="secondary" className="shrink-0 text-[10px]">
+            {comparison.length} dept{comparison.length !== 1 ? "s" : ""}
+          </Badge>
+        )}
       </CardHeader>
       <CardContent className="p-0">
-        <div className="flex flex-col items-center justify-center gap-2 px-6 py-10 text-center" style={{ height: 180 }}>
-          <ShieldAlert className="h-6 w-6 text-muted-foreground/50" />
-          <p className="max-w-[260px] text-xs text-muted-foreground">
-            Department-level risk comparison will render here once data is connected.
-          </p>
-        </div>
+        {isLoading && (
+          <div className="flex flex-col gap-2 p-4" style={{ height: 200 }}>
+            <Skeleton className="h-full w-full" />
+          </div>
+        )}
+        {noData && (
+          <div className="flex flex-col items-center justify-center gap-2 px-6 py-10 text-center" style={{ height: 200 }}>
+            <ShieldAlert className="h-6 w-6 text-muted-foreground/50" />
+            <p className="max-w-[260px] text-xs text-muted-foreground">
+              No completed inspections with risk scores found. Department comparison will appear once data is available.
+            </p>
+          </div>
+        )}
+        {!isLoading && comparison.length > 0 && (
+          <div className="px-2 py-3" style={{ height: 200 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={comparison}
+                layout="vertical"
+                margin={{ top: 4, right: 16, bottom: 0, left: 8 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" strokeOpacity={0.5} horizontal={false} />
+                <XAxis
+                  type="number"
+                  domain={[0, 100]}
+                  tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="department"
+                  tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={90}
+                />
+                <Tooltip
+                  contentStyle={{
+                    fontSize: 11,
+                    background: "var(--color-card)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: 6,
+                  }}
+                  formatter={(value: number, _name, props) => [
+                    `${value} (${(props.payload as DepartmentRiskPoint).count} inspection${(props.payload as DepartmentRiskPoint).count !== 1 ? "s" : ""})`,
+                    "Avg Risk Score",
+                  ]}
+                />
+                <Bar
+                  dataKey="averageRiskScore"
+                  fill="var(--color-primary)"
+                  radius={[0, 3, 3, 0]}
+                  maxBarSize={18}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
