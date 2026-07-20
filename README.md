@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <em>An operational decision-making platform for regulatory departments that digitizes the complete inspection lifecycle — from assignment and field inspection to AI-assisted risk analysis, evidence verification, report generation, and supervisory review — with explainable AI decision support and full traceability.</em>
+  <em>An operational decision-making platform for regulatory departments that digitizes the complete inspection lifecycle from assignment and field inspection to AI-assisted risk analysis, evidence verification, report generation, and supervisory review with explainable AI decision support and full traceability.</em>
 </p>
 
 ---
@@ -159,12 +159,12 @@ graph TB
 
 | Module | Preview |
 |:---:|:---|
-| **Landing Portal** | <img src="photos/1.png" width="600" alt="NIRIKSHA Landing Portal" /> |
-| **Admin Dashboard** | <img src="photos/2.png" width="600" alt="Admin Console Dashboard" /> |
-| **Supervisor Dashboard** | <img src="photos/3.png" width="600" alt="Supervisor Console Overview" /> |
-| **Inspection Review** | <img src="photos/4.png" width="600" alt="Inspection Review Workspace" /> |
-| **Risk Monitoring** | <img src="photos/5.png" width="600" alt="Risk Monitoring Dashboard" /> |
-| **Supervisor Analytics** | <img src="photos/6.png" width="600" alt="Supervisor Analytics Dashboard" /> |
+| **Landing Portal** | <img src="1.png" width="600" alt="NIRIKSHA Landing Portal" /> |
+| **Admin Dashboard** | <img src="2.png" width="600" alt="Admin Console Dashboard" /> |
+| **Supervisor Dashboard** | <img src="3.png" width="600" alt="Supervisor Console Overview" /> |
+| **Inspection Review** | <img src="4.png" width="600" alt="Inspection Review Workspace" /> |
+| **Risk Monitoring** | <img src="5.png" width="600" alt="Risk Monitoring Dashboard" /> |
+| **Supervisor Analytics** | <img src="6.png" width="600" alt="Supervisor Analytics Dashboard" /> |
 
 </div>
 
