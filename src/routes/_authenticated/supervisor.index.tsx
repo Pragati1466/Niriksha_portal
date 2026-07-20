@@ -24,8 +24,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   getSupervisorKpis,
   getInspectionStatusCounts,
-  getSupervisorActivity,
+  getSupervisorReviewActivity,
   getAvgInspectorProductivity,
+  getHighRiskCoverage,
+  getAvgTurnaroundHours,
+  getAIAcceptanceRateAllTime,
+  type ReviewActivityEntry,
 } from "@/lib/supervisor.functions";
 
 export const Route = createFileRoute("/_authenticated/supervisor/")({
@@ -53,14 +57,32 @@ function SupervisorOverviewPage() {
   });
 
   const { data: activity, isLoading: activityLoading } = useQuery({
-    queryKey: ["supervisor-activity"],
-    queryFn: () => getSupervisorActivity(8),
+    queryKey: ["supervisor-review-activity"],
+    queryFn: () => getSupervisorReviewActivity(8),
     refetchOnWindowFocus: false,
   });
 
   const { data: avgInspectorProd, isLoading: avgInspectorLoading } = useQuery({
     queryKey: ["supervisor-avg-inspector-prod"],
     queryFn: () => getAvgInspectorProductivity("year"),
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: highRiskCoverage, isLoading: highRiskCoverageLoading } = useQuery({
+    queryKey: ["supervisor-high-risk-coverage"],
+    queryFn: getHighRiskCoverage,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: avgTurnaroundHours, isLoading: avgTurnaroundLoading } = useQuery({
+    queryKey: ["supervisor-avg-turnaround-hours"],
+    queryFn: getAvgTurnaroundHours,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: aiAcceptance, isLoading: aiAcceptanceLoading } = useQuery({
+    queryKey: ["supervisor-ai-acceptance-rate"],
+    queryFn: getAIAcceptanceRateAllTime,
     refetchOnWindowFocus: false,
   });
 
@@ -88,7 +110,7 @@ function SupervisorOverviewPage() {
           <KpiCard label="Total Inspections"        icon={ClipboardList} accent="default" value={kpis?.totalInspections}     loading={kpisLoading} />
           <KpiCard label="Pending Reviews"          icon={Clock}         accent="warn"    value={kpis?.pendingReview}         loading={kpisLoading} />
           <KpiCard label="Completed"                icon={CheckCircle2}  accent="ok"      value={kpis?.completed}             loading={kpisLoading} />
-          <KpiCard label="High-Risk Establishments" icon={ShieldAlert}   accent="danger"  value={kpis?.highRiskEstablishments} loading={kpisLoading} />
+          <KpiCard label="High-Risk Establishments" icon={ShieldAlert}   accent="danger"  value={kpis?.highRiskEstablishments} loading={kpisLoading} labelClassName="-ml-3" iconBoxClassName="h-7 w-7 -ml-1.5" iconClassName="h-3.5 w-3.5" />
           <KpiCard label="In Progress"              icon={AlertTriangle} accent="warn"    value={kpis?.inProgress}            loading={kpisLoading} />
           <KpiCard label="Cancelled"                icon={FileText}      accent="default" value={kpis?.cancelled}             loading={kpisLoading} />
         </div>
@@ -98,10 +120,10 @@ function SupervisorOverviewPage() {
       <section>
         <SectionLabel>Performance Indicators</SectionLabel>
         <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <KpiCard label="High-Risk Coverage"   icon={ShieldAlert} accent="danger"  loading={kpisLoading} sub="% of high-risk inspections reviewed" />
-          <KpiCard label="Avg. Report Turnaround" icon={Clock}     accent="default" loading={kpisLoading} sub="Hours from submission to approval" />
-          <KpiCard label="Inspector Productivity" icon={Users}     accent="default" value={avgInspectorProd ?? undefined} loading={avgInspectorLoading} sub="Avg. inspections per inspector" />
-          <KpiCard label="AI Acceptance Rate"   icon={Brain}       accent="default" loading={kpisLoading} sub="% of AI reports accepted as-is" />
+          <KpiCard label="High-Risk Coverage"    icon={ShieldAlert} accent="danger"  value={highRiskCoverage ?? undefined}               loading={highRiskCoverageLoading} sub="% of high-risk inspections reviewed" />
+          <KpiCard label="Avg. Report Turnaround" icon={Clock}      accent="default" value={avgTurnaroundHours ?? undefined}              loading={avgTurnaroundLoading}    sub="Hours from submission to approval" />
+          <KpiCard label="Inspector Productivity" icon={Users}      accent="default" value={avgInspectorProd ?? undefined}                loading={avgInspectorLoading}     sub="Avg. inspections per inspector" />
+          <KpiCard label="AI Acceptance Rate"     icon={Brain}      accent="default" value={aiAcceptance?.acceptanceRate ?? undefined}    loading={aiAcceptanceLoading}     sub="% of AI reports accepted as-is" />
         </div>
       </section>
 
@@ -143,6 +165,9 @@ function KpiCard({
   value,
   loading,
   sub,
+  labelClassName = "",
+  iconBoxClassName = "h-8 w-8",
+  iconClassName = "h-4 w-4",
 }: {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -150,6 +175,9 @@ function KpiCard({
   value?: number;
   loading?: boolean;
   sub?: string;
+  labelClassName?: string;
+  iconBoxClassName?: string;
+  iconClassName?: string;
 }) {
   const iconBg: Record<Accent, string> = {
     default: "bg-primary/10 text-primary",
@@ -163,11 +191,11 @@ function KpiCard({
       <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-primary/5 blur-2xl transition group-hover:bg-primary/10" />
       <CardContent className="relative p-5">
         <div className="flex items-start justify-between">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground leading-tight pr-2">
+          <span className={`text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground leading-tight pr-2 ${labelClassName}`}>
             {label}
           </span>
-          <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${iconBg[accent]}`}>
-            <Icon className="h-4 w-4" />
+          <div className={`grid ${iconBoxClassName} shrink-0 place-items-center rounded-lg ${iconBg[accent]}`}>
+            <Icon className={iconClassName} />
           </div>
         </div>
         <div className="mt-3 text-[28px] font-semibold leading-none tracking-tight text-foreground tabular-nums">
@@ -230,10 +258,6 @@ function EmptyState({
   );
 }
 
-function humanAction(a: string) {
-  return a === "INSERT" ? "Created" : a === "UPDATE" ? "Updated" : a === "DELETE" ? "Deleted" : a;
-}
-
 /* ─────────────────────────────────────────────────────────────
    Panels
 ───────────────────────────────────────────────────────────── */
@@ -242,9 +266,17 @@ function RecentActivityPanel({
   items,
   loading,
 }: {
-  items: { id: number; action: string; entity_type: string; summary: string | null; created_at: string }[];
+  items: ReviewActivityEntry[];
   loading: boolean;
 }) {
+  const decisionColor = (d: "approved" | "rejected") =>
+    d === "approved"
+      ? "bg-emerald-500"
+      : "bg-destructive";
+
+  const decisionLabel = (d: "approved" | "rejected") =>
+    d === "approved" ? "Approved" : "Rejected";
+
   return (
     <PanelCard
       title="Recent Review Activity"
@@ -280,27 +312,39 @@ function RecentActivityPanel({
           />
         )}
         {!loading && items.length > 0 && (
-          <ol className="space-y-3">
-            {items.map((a) => (
-              <li key={a.id} className="flex gap-3">
-                <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="font-medium text-foreground">{humanAction(a.action)}</span>
-                    <Badge variant="outline" className="border-border/60 text-[10px] uppercase tracking-wider">
-                      {a.entity_type}
-                    </Badge>
-                  </div>
-                  {a.summary && (
-                    <div className="mt-0.5 truncate text-xs text-muted-foreground">{a.summary}</div>
-                  )}
-                  <div className="mt-0.5 text-xs text-muted-foreground">
-                    {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ol>
+          <div className="h-[188px] overflow-y-auto pr-2">
+  <ol className="space-y-3">
+    {items.map((a) => (
+      <li key={a.id} className="flex gap-3">
+        <div
+          className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${decisionColor(a.decision)}`}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="font-medium text-foreground">
+              {decisionLabel(a.decision)}
+            </span>
+            <span className="truncate text-foreground">
+              {a.establishmentName}
+            </span>
+          </div>
+
+          {a.remarks && (
+            <div className="mt-0.5 truncate text-xs text-muted-foreground">
+              {a.remarks}
+            </div>
+          )}
+
+          <div className="mt-0.5 text-xs text-muted-foreground">
+            {formatDistanceToNow(new Date(a.reviewedAt), {
+              addSuffix: true,
+            })}
+          </div>
+        </div>
+      </li>
+    ))}
+  </ol>
+</div>
         )}
       </div>
     </PanelCard>
@@ -328,8 +372,13 @@ function QuickActionsPanel() {
               <a.icon className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-semibold text-foreground">{a.label}</div>
-              <div className="truncate text-xs text-muted-foreground">{a.detail}</div>
+              <div className="text-sm font-semibold leading-tight text-foreground">
+  {a.label}
+</div>
+
+<div className="mt-1 text-xs leading-snug text-muted-foreground">
+  {a.detail}
+</div>
             </div>
             <ArrowUpRight className="h-4 w-4 text-muted-foreground transition group-hover:text-foreground" />
           </Link>
