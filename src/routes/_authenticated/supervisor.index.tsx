@@ -110,7 +110,7 @@ function SupervisorOverviewPage() {
           <KpiCard label="Total Inspections"        icon={ClipboardList} accent="default" value={kpis?.totalInspections}     loading={kpisLoading} />
           <KpiCard label="Pending Reviews"          icon={Clock}         accent="warn"    value={kpis?.pendingReview}         loading={kpisLoading} />
           <KpiCard label="Completed"                icon={CheckCircle2}  accent="ok"      value={kpis?.completed}             loading={kpisLoading} />
-          <KpiCard label="High-Risk Establishments" icon={ShieldAlert}   accent="danger"  value={kpis?.highRiskEstablishments} loading={kpisLoading} />
+          <KpiCard label="High-Risk Establishments" icon={ShieldAlert}   accent="danger"  value={kpis?.highRiskEstablishments} loading={kpisLoading} labelClassName="-ml-3" iconBoxClassName="h-7 w-7 -ml-1.5" iconClassName="h-3.5 w-3.5" />
           <KpiCard label="In Progress"              icon={AlertTriangle} accent="warn"    value={kpis?.inProgress}            loading={kpisLoading} />
           <KpiCard label="Cancelled"                icon={FileText}      accent="default" value={kpis?.cancelled}             loading={kpisLoading} />
         </div>
@@ -165,6 +165,9 @@ function KpiCard({
   value,
   loading,
   sub,
+  labelClassName = "",
+  iconBoxClassName = "h-8 w-8",
+  iconClassName = "h-4 w-4",
 }: {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -172,6 +175,9 @@ function KpiCard({
   value?: number;
   loading?: boolean;
   sub?: string;
+  labelClassName?: string;
+  iconBoxClassName?: string;
+  iconClassName?: string;
 }) {
   const iconBg: Record<Accent, string> = {
     default: "bg-primary/10 text-primary",
@@ -185,11 +191,11 @@ function KpiCard({
       <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-primary/5 blur-2xl transition group-hover:bg-primary/10" />
       <CardContent className="relative p-5">
         <div className="flex items-start justify-between">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground leading-tight pr-2">
+          <span className={`text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground leading-tight pr-2 ${labelClassName}`}>
             {label}
           </span>
-          <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${iconBg[accent]}`}>
-            <Icon className="h-4 w-4" />
+          <div className={`grid ${iconBoxClassName} shrink-0 place-items-center rounded-lg ${iconBg[accent]}`}>
+            <Icon className={iconClassName} />
           </div>
         </div>
         <div className="mt-3 text-[28px] font-semibold leading-none tracking-tight text-foreground tabular-nums">
@@ -306,25 +312,39 @@ function RecentActivityPanel({
           />
         )}
         {!loading && items.length > 0 && (
-          <ol className="space-y-3">
-            {items.map((a) => (
-              <li key={a.id} className="flex gap-3">
-                <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${decisionColor(a.decision)}`} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="font-medium text-foreground">{decisionLabel(a.decision)}</span>
-                    <span className="truncate text-foreground">{a.establishmentName}</span>
-                  </div>
-                  {a.remarks && (
-                    <div className="mt-0.5 truncate text-xs text-muted-foreground">{a.remarks}</div>
-                  )}
-                  <div className="mt-0.5 text-xs text-muted-foreground">
-                    {formatDistanceToNow(new Date(a.reviewedAt), { addSuffix: true })}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ol>
+          <div className="h-[188px] overflow-y-auto pr-2">
+  <ol className="space-y-3">
+    {items.map((a) => (
+      <li key={a.id} className="flex gap-3">
+        <div
+          className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${decisionColor(a.decision)}`}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="font-medium text-foreground">
+              {decisionLabel(a.decision)}
+            </span>
+            <span className="truncate text-foreground">
+              {a.establishmentName}
+            </span>
+          </div>
+
+          {a.remarks && (
+            <div className="mt-0.5 truncate text-xs text-muted-foreground">
+              {a.remarks}
+            </div>
+          )}
+
+          <div className="mt-0.5 text-xs text-muted-foreground">
+            {formatDistanceToNow(new Date(a.reviewedAt), {
+              addSuffix: true,
+            })}
+          </div>
+        </div>
+      </li>
+    ))}
+  </ol>
+</div>
         )}
       </div>
     </PanelCard>
@@ -352,8 +372,13 @@ function QuickActionsPanel() {
               <a.icon className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-semibold text-foreground">{a.label}</div>
-              <div className="truncate text-xs text-muted-foreground">{a.detail}</div>
+              <div className="text-sm font-semibold leading-tight text-foreground">
+  {a.label}
+</div>
+
+<div className="mt-1 text-xs leading-snug text-muted-foreground">
+  {a.detail}
+</div>
             </div>
             <ArrowUpRight className="h-4 w-4 text-muted-foreground transition group-hover:text-foreground" />
           </Link>

@@ -1605,8 +1605,46 @@ export async function submitSupervisorReview(
 
     console.log("[ai_rec DEBUG] upsert result — data:", upsertData, "| error:", upsertError);
   } else {
-    console.log("[ai_rec DEBUG] skipped — aiOutput is null/undefined (AI agent not run before approval)");
+  console.log(
+    "[ai_rec DEBUG] aiOutput missing — checking for existing AI recommendation"
+  );
+
+  const aiDecision: "accepted" | "rejected" =
+    decision === "approved" ? "accepted" : "rejected";
+
+  const { data: existing, error: existingError } = await supabase
+    .from("ai_recommendations")
+    .select("id")
+    .eq("inspection_id", inspectionId)
+    .maybeSingle();
+
+  console.log(
+    "[ai_rec DEBUG] existing ai_recommendations row:",
+    existing,
+    "| error:",
+    existingError
+  );
+
+  if (existing) {
+    const { error: updateError } = await supabase
+      .from("ai_recommendations")
+      .update({
+        supervisor_decision: aiDecision,
+        supervisor_notes: remarks?.trim() || null,
+        decided_at: new Date().toISOString(),
+      })
+      .eq("inspection_id", inspectionId);
+
+    console.log(
+      "[ai_rec DEBUG] decision-only update error:",
+      updateError
+    );
+  } else {
+    console.log(
+      "[ai_rec DEBUG] no existing ai_recommendations row; nothing to update"
+    );
   }
+}
 }
 
 /* ─────────────────────────────────────────────────────────────
