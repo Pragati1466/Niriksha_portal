@@ -9,45 +9,45 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedSupervisorRouteImport } from './routes/_authenticated/supervisor'
-import { Route as AuthenticatedInspectorRouteImport } from './routes/_authenticated/inspector'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
-import { Route as AuthenticatedSupervisorIndexRouteImport } from './routes/_authenticated/supervisor.index'
-import { Route as AuthenticatedInspectorIndexRouteImport } from './routes/_authenticated/inspector.index'
+import { Route as AuthenticatedInspectorRouteImport } from './routes/_authenticated/inspector'
+import { Route as AuthenticatedSupervisorRouteImport } from './routes/_authenticated/supervisor'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
-import { Route as AuthenticatedSupervisorRiskRouteImport } from './routes/_authenticated/supervisor.risk'
-import { Route as AuthenticatedSupervisorReviewsRouteImport } from './routes/_authenticated/supervisor.reviews'
-import { Route as AuthenticatedSupervisorReportsRouteImport } from './routes/_authenticated/supervisor.reports'
-import { Route as AuthenticatedSupervisorAnalyticsRouteImport } from './routes/_authenticated/supervisor.analytics'
-import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
-import { Route as AuthenticatedAdminTemplatesRouteImport } from './routes/_authenticated/admin.templates'
-import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin.settings'
-import { Route as AuthenticatedAdminEstablishmentsRouteImport } from './routes/_authenticated/admin.establishments'
-import { Route as AuthenticatedAdminDepartmentsRouteImport } from './routes/_authenticated/admin.departments'
-import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated/admin.audit'
 import { Route as AuthenticatedAdminAssignmentsRouteImport } from './routes/_authenticated/admin.assignments'
+import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated/admin.audit'
+import { Route as AuthenticatedAdminDepartmentsRouteImport } from './routes/_authenticated/admin.departments'
+import { Route as AuthenticatedAdminEstablishmentsRouteImport } from './routes/_authenticated/admin.establishments'
+import { Route as AuthenticatedAdminSettingsRouteImport } from './routes/_authenticated/admin.settings'
+import { Route as AuthenticatedAdminTemplatesRouteImport } from './routes/_authenticated/admin.templates'
+import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin.users'
+import { Route as AuthenticatedInspectorIndexRouteImport } from './routes/_authenticated/inspector.index'
+import { Route as AuthenticatedSupervisorIndexRouteImport } from './routes/_authenticated/supervisor.index'
+import { Route as AuthenticatedSupervisorAnalyticsRouteImport } from './routes/_authenticated/supervisor.analytics'
+import { Route as AuthenticatedSupervisorReportsRouteImport } from './routes/_authenticated/supervisor.reports'
+import { Route as AuthenticatedSupervisorReviewsRouteImport } from './routes/_authenticated/supervisor.reviews'
+import { Route as AuthenticatedSupervisorRiskRouteImport } from './routes/_authenticated/supervisor.risk'
 import { Route as AuthenticatedSupervisorInspectionIdRouteImport } from './routes/_authenticated/supervisor.inspection.$id'
 
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedSupervisorRoute = AuthenticatedSupervisorRouteImport.update({
-  id: '/supervisor',
-  path: '/supervisor',
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedInspectorRoute = AuthenticatedInspectorRouteImport.update({
@@ -55,67 +55,31 @@ const AuthenticatedInspectorRoute = AuthenticatedInspectorRouteImport.update({
   path: '/inspector',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+const AuthenticatedSupervisorRoute = AuthenticatedSupervisorRouteImport.update({
+  id: '/supervisor',
+  path: '/supervisor',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedSupervisorIndexRoute =
-  AuthenticatedSupervisorIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => AuthenticatedSupervisorRoute,
-  } as any)
-const AuthenticatedInspectorIndexRoute =
-  AuthenticatedInspectorIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => AuthenticatedInspectorRoute,
-  } as any)
 const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
-const AuthenticatedSupervisorRiskRoute =
-  AuthenticatedSupervisorRiskRouteImport.update({
-    id: '/risk',
-    path: '/risk',
-    getParentRoute: () => AuthenticatedSupervisorRoute,
-  } as any)
-const AuthenticatedSupervisorReviewsRoute =
-  AuthenticatedSupervisorReviewsRouteImport.update({
-    id: '/reviews',
-    path: '/reviews',
-    getParentRoute: () => AuthenticatedSupervisorRoute,
-  } as any)
-const AuthenticatedSupervisorReportsRoute =
-  AuthenticatedSupervisorReportsRouteImport.update({
-    id: '/reports',
-    path: '/reports',
-    getParentRoute: () => AuthenticatedSupervisorRoute,
-  } as any)
-const AuthenticatedSupervisorAnalyticsRoute =
-  AuthenticatedSupervisorAnalyticsRouteImport.update({
-    id: '/analytics',
-    path: '/analytics',
-    getParentRoute: () => AuthenticatedSupervisorRoute,
-  } as any)
-const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => AuthenticatedAdminRoute,
-} as any)
-const AuthenticatedAdminTemplatesRoute =
-  AuthenticatedAdminTemplatesRouteImport.update({
-    id: '/templates',
-    path: '/templates',
+const AuthenticatedAdminAssignmentsRoute =
+  AuthenticatedAdminAssignmentsRouteImport.update({
+    id: '/assignments',
+    path: '/assignments',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
-const AuthenticatedAdminSettingsRoute =
-  AuthenticatedAdminSettingsRouteImport.update({
-    id: '/settings',
-    path: '/settings',
+const AuthenticatedAdminAuditRoute = AuthenticatedAdminAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const AuthenticatedAdminDepartmentsRoute =
+  AuthenticatedAdminDepartmentsRouteImport.update({
+    id: '/departments',
+    path: '/departments',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const AuthenticatedAdminEstablishmentsRoute =
@@ -124,22 +88,58 @@ const AuthenticatedAdminEstablishmentsRoute =
     path: '/establishments',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
-const AuthenticatedAdminDepartmentsRoute =
-  AuthenticatedAdminDepartmentsRouteImport.update({
-    id: '/departments',
-    path: '/departments',
+const AuthenticatedAdminSettingsRoute =
+  AuthenticatedAdminSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
-const AuthenticatedAdminAuditRoute = AuthenticatedAdminAuditRouteImport.update({
-  id: '/audit',
-  path: '/audit',
+const AuthenticatedAdminTemplatesRoute =
+  AuthenticatedAdminTemplatesRouteImport.update({
+    id: '/templates',
+    path: '/templates',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
-const AuthenticatedAdminAssignmentsRoute =
-  AuthenticatedAdminAssignmentsRouteImport.update({
-    id: '/assignments',
-    path: '/assignments',
-    getParentRoute: () => AuthenticatedAdminRoute,
+const AuthenticatedInspectorIndexRoute =
+  AuthenticatedInspectorIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedInspectorRoute,
+  } as any)
+const AuthenticatedSupervisorIndexRoute =
+  AuthenticatedSupervisorIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedSupervisorRoute,
+  } as any)
+const AuthenticatedSupervisorAnalyticsRoute =
+  AuthenticatedSupervisorAnalyticsRouteImport.update({
+    id: '/analytics',
+    path: '/analytics',
+    getParentRoute: () => AuthenticatedSupervisorRoute,
+  } as any)
+const AuthenticatedSupervisorReportsRoute =
+  AuthenticatedSupervisorReportsRouteImport.update({
+    id: '/reports',
+    path: '/reports',
+    getParentRoute: () => AuthenticatedSupervisorRoute,
+  } as any)
+const AuthenticatedSupervisorReviewsRoute =
+  AuthenticatedSupervisorReviewsRouteImport.update({
+    id: '/reviews',
+    path: '/reviews',
+    getParentRoute: () => AuthenticatedSupervisorRoute,
+  } as any)
+const AuthenticatedSupervisorRiskRoute =
+  AuthenticatedSupervisorRiskRouteImport.update({
+    id: '/risk',
+    path: '/risk',
+    getParentRoute: () => AuthenticatedSupervisorRoute,
   } as any)
 const AuthenticatedSupervisorInspectionIdRoute =
   AuthenticatedSupervisorInspectionIdRouteImport.update({
@@ -288,11 +288,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -302,18 +302,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/supervisor': {
-      id: '/_authenticated/supervisor'
-      path: '/supervisor'
-      fullPath: '/supervisor'
-      preLoaderRoute: typeof AuthenticatedSupervisorRouteImport
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/inspector': {
@@ -323,26 +323,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInspectorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/admin': {
-      id: '/_authenticated/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+    '/_authenticated/supervisor': {
+      id: '/_authenticated/supervisor'
+      path: '/supervisor'
+      fullPath: '/supervisor'
+      preLoaderRoute: typeof AuthenticatedSupervisorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/supervisor/': {
-      id: '/_authenticated/supervisor/'
-      path: '/'
-      fullPath: '/supervisor/'
-      preLoaderRoute: typeof AuthenticatedSupervisorIndexRouteImport
-      parentRoute: typeof AuthenticatedSupervisorRoute
-    }
-    '/_authenticated/inspector/': {
-      id: '/_authenticated/inspector/'
-      path: '/'
-      fullPath: '/inspector/'
-      preLoaderRoute: typeof AuthenticatedInspectorIndexRouteImport
-      parentRoute: typeof AuthenticatedInspectorRoute
     }
     '/_authenticated/admin/': {
       id: '/_authenticated/admin/'
@@ -351,67 +337,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
-    '/_authenticated/supervisor/risk': {
-      id: '/_authenticated/supervisor/risk'
-      path: '/risk'
-      fullPath: '/supervisor/risk'
-      preLoaderRoute: typeof AuthenticatedSupervisorRiskRouteImport
-      parentRoute: typeof AuthenticatedSupervisorRoute
-    }
-    '/_authenticated/supervisor/reviews': {
-      id: '/_authenticated/supervisor/reviews'
-      path: '/reviews'
-      fullPath: '/supervisor/reviews'
-      preLoaderRoute: typeof AuthenticatedSupervisorReviewsRouteImport
-      parentRoute: typeof AuthenticatedSupervisorRoute
-    }
-    '/_authenticated/supervisor/reports': {
-      id: '/_authenticated/supervisor/reports'
-      path: '/reports'
-      fullPath: '/supervisor/reports'
-      preLoaderRoute: typeof AuthenticatedSupervisorReportsRouteImport
-      parentRoute: typeof AuthenticatedSupervisorRoute
-    }
-    '/_authenticated/supervisor/analytics': {
-      id: '/_authenticated/supervisor/analytics'
-      path: '/analytics'
-      fullPath: '/supervisor/analytics'
-      preLoaderRoute: typeof AuthenticatedSupervisorAnalyticsRouteImport
-      parentRoute: typeof AuthenticatedSupervisorRoute
-    }
-    '/_authenticated/admin/users': {
-      id: '/_authenticated/admin/users'
-      path: '/users'
-      fullPath: '/admin/users'
-      preLoaderRoute: typeof AuthenticatedAdminUsersRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/templates': {
-      id: '/_authenticated/admin/templates'
-      path: '/templates'
-      fullPath: '/admin/templates'
-      preLoaderRoute: typeof AuthenticatedAdminTemplatesRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/settings': {
-      id: '/_authenticated/admin/settings'
-      path: '/settings'
-      fullPath: '/admin/settings'
-      preLoaderRoute: typeof AuthenticatedAdminSettingsRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/establishments': {
-      id: '/_authenticated/admin/establishments'
-      path: '/establishments'
-      fullPath: '/admin/establishments'
-      preLoaderRoute: typeof AuthenticatedAdminEstablishmentsRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/departments': {
-      id: '/_authenticated/admin/departments'
-      path: '/departments'
-      fullPath: '/admin/departments'
-      preLoaderRoute: typeof AuthenticatedAdminDepartmentsRouteImport
+    '/_authenticated/admin/assignments': {
+      id: '/_authenticated/admin/assignments'
+      path: '/assignments'
+      fullPath: '/admin/assignments'
+      preLoaderRoute: typeof AuthenticatedAdminAssignmentsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/audit': {
@@ -421,12 +351,82 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminAuditRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
-    '/_authenticated/admin/assignments': {
-      id: '/_authenticated/admin/assignments'
-      path: '/assignments'
-      fullPath: '/admin/assignments'
-      preLoaderRoute: typeof AuthenticatedAdminAssignmentsRouteImport
+    '/_authenticated/admin/departments': {
+      id: '/_authenticated/admin/departments'
+      path: '/departments'
+      fullPath: '/admin/departments'
+      preLoaderRoute: typeof AuthenticatedAdminDepartmentsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/establishments': {
+      id: '/_authenticated/admin/establishments'
+      path: '/establishments'
+      fullPath: '/admin/establishments'
+      preLoaderRoute: typeof AuthenticatedAdminEstablishmentsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/settings': {
+      id: '/_authenticated/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AuthenticatedAdminSettingsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/templates': {
+      id: '/_authenticated/admin/templates'
+      path: '/templates'
+      fullPath: '/admin/templates'
+      preLoaderRoute: typeof AuthenticatedAdminTemplatesRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/users': {
+      id: '/_authenticated/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AuthenticatedAdminUsersRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/inspector/': {
+      id: '/_authenticated/inspector/'
+      path: '/'
+      fullPath: '/inspector/'
+      preLoaderRoute: typeof AuthenticatedInspectorIndexRouteImport
+      parentRoute: typeof AuthenticatedInspectorRoute
+    }
+    '/_authenticated/supervisor/': {
+      id: '/_authenticated/supervisor/'
+      path: '/'
+      fullPath: '/supervisor/'
+      preLoaderRoute: typeof AuthenticatedSupervisorIndexRouteImport
+      parentRoute: typeof AuthenticatedSupervisorRoute
+    }
+    '/_authenticated/supervisor/analytics': {
+      id: '/_authenticated/supervisor/analytics'
+      path: '/analytics'
+      fullPath: '/supervisor/analytics'
+      preLoaderRoute: typeof AuthenticatedSupervisorAnalyticsRouteImport
+      parentRoute: typeof AuthenticatedSupervisorRoute
+    }
+    '/_authenticated/supervisor/reports': {
+      id: '/_authenticated/supervisor/reports'
+      path: '/reports'
+      fullPath: '/supervisor/reports'
+      preLoaderRoute: typeof AuthenticatedSupervisorReportsRouteImport
+      parentRoute: typeof AuthenticatedSupervisorRoute
+    }
+    '/_authenticated/supervisor/reviews': {
+      id: '/_authenticated/supervisor/reviews'
+      path: '/reviews'
+      fullPath: '/supervisor/reviews'
+      preLoaderRoute: typeof AuthenticatedSupervisorReviewsRouteImport
+      parentRoute: typeof AuthenticatedSupervisorRoute
+    }
+    '/_authenticated/supervisor/risk': {
+      id: '/_authenticated/supervisor/risk'
+      path: '/risk'
+      fullPath: '/supervisor/risk'
+      preLoaderRoute: typeof AuthenticatedSupervisorRiskRouteImport
+      parentRoute: typeof AuthenticatedSupervisorRoute
     }
     '/_authenticated/supervisor/inspection/$id': {
       id: '/_authenticated/supervisor/inspection/$id'
