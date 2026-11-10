@@ -122,7 +122,7 @@ def get_risk_level(score: int) -> str:
 
 def get_llm():
     return ChatGroq(
-        model="llama-3.1-70b-versatile",
+        model="openai/gpt-oss-120b",
         api_key=os.getenv("GROQ_API_KEY"),
         temperature=0.3,
     )
